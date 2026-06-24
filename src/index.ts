@@ -1,80 +1,44 @@
 #!/usr/bin/env node
 
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z } from "zod";
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { createStore, DataStore } from './store.js'
+import { createSyncHandler } from './sync.js'
+import { promises as fsp } from 'fs'
+import { registerWhatsAppTools } from './tools.js'
 
-const server = new McpServer({ name: "whatsapp-mcp", version: "0.1.0" });
+const dataDir = process.env.DATA_DIR ?? './data'
 
-const SendMessageSchema = z.object({
-  to: z.string().min(1, "Recipient is required"),
-  message: z.string().min(1, "Message body is required"),
-});
-
-const ListChatsSchema = z.object({
-  limit: z.number().int().positive().optional().default(20),
-});
-
-const ReadMessagesSchema = z.object({
-  chatId: z.string().min(1, "Chat ID is required"),
-  limit: z.number().int().positive().optional().default(50),
-});
-
-server.registerTool(
-  "send_message",
-  {
-    description: "Send a WhatsApp message to a recipient",
-    inputSchema: SendMessageSchema,
-  },
-  async ({ to, message }) => ({
-    content: [
-      {
-        type: "text" as const,
-        text: `Message would be sent to ${to}: "${message}" (not yet implemented)`,
-      },
-    ],
-  }),
-);
-
-server.registerTool(
-  "list_chats",
-  {
-    description: "List recent WhatsApp chats",
-    inputSchema: ListChatsSchema,
-  },
-  async ({ limit }) => ({
-    content: [
-      {
-        type: "text" as const,
-        text: `Listing up to ${limit} chats (not yet implemented)`,
-      },
-    ],
-  }),
-);
-
-server.registerTool(
-  "read_messages",
-  {
-    description: "Read messages from a WhatsApp chat",
-    inputSchema: ReadMessagesSchema,
-  },
-  async ({ chatId, limit }) => ({
-    content: [
-      {
-        type: "text" as const,
-        text: `Reading up to ${limit} messages from ${chatId} (not yet implemented)`,
-      },
-    ],
-  }),
-);
-
-async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-  console.error("whatsapp-mcp server running on stdio");
+async function readDataFromFile(): Promise<DataStore | undefined> {
+  const canAccess = await fsp.access(dataDir).then(() => true).catch(() => false)
+  if (!canAccess) return undefined
+  const chats = await fsp.readFile(`${dataDir}/chats.json`, 'utf-8')
+  const messages = await fsp.readFile(`${dataDir}/messages.json`, 'utf-8')
+  const contacts = await fsp.readFile(`${dataDir}/contacts.json`, 'utf-8')
+  const auth = await fsp.readFile(`${dataDir}/auth.json`, 'utf-8')
+  return { chats, messages, contacts, auth }
 }
 
-main().catch((error) => {
-  console.error("Server error:", error);
-  process.exit(1);
-});
+async function writeDataToFile(data: DataStore): Promise<void> {
+  await fsp.mkdir(dataDir, { recursive: true })
+  await fsp.writeFile(`${dataDir}/chats.json`, data.chats, 'utf-8')
+  await fsp.writeFile(`${dataDir}/messages.json`, data.messages, 'utf-8')
+  await fsp.writeFile(`${dataDir}/contacts.json`, data.contacts, 'utf-8')
+  await fsp.writeFile(`${dataDir}/auth.json`, data.auth, 'utf-8')
+}
+
+async function main() {
+  const server = new McpServer({ name: 'whatsapp-mcp', version: '0.1.0' })
+  const transport = new StdioServerTransport()
+  const inputData = await readDataFromFile()
+  const whatsappStore = createStore(writeDataToFile, inputData)
+  const whatsappSync = createSyncHandler(whatsappStore)
+  registerWhatsAppTools(server, whatsappStore, whatsappSync)
+  await server.connect(transport)
+  console.info('whatsapp-mcp server running on stdio')
+}
+
+main().catch((error: unknown) => {
+  console.error('Server error:', error)
+  process.exit(1)
+})
