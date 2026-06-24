@@ -1,12 +1,16 @@
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp'
 import { ChatWithId, ContactWithId, MessageWithId, WhatsAppStore } from './store.js'
-import { SyncHandler } from './sync.js'
-import { ListResourcesResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types'
+import { WhatsAppHandler } from './sync.js'
+import { CallToolResult, ListResourcesResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types'
+import z from 'zod'
+import { WAMessage } from '@whiskeysockets/baileys'
 
-export function registerWhatsAppTools(server: McpServer, store: WhatsAppStore, sync: SyncHandler) {
+export function registerWhatsAppTools(server: McpServer, store: WhatsAppStore, sync: WhatsAppHandler) {
   registerChatsResources(server, store)
   registerContactsResources(server, store)
   registerMessagesResources(server, store)
+  registerMessageTools(server, sync)
+  registerChatTools(server, sync)
 }
 
 function registerChatsResources(server: McpServer, store: WhatsAppStore) {
@@ -75,11 +79,59 @@ const messageToListResource = (message: MessageWithId | undefined) => message
 const toReadResource = (t: ReadResourceResult['contents']) => ({ contents: t })
 const toListResource = (t: ListResourcesResult['resources']) => ({ resources: t })
 
-/*
+function registerMessageTools(server: McpServer, sync: WhatsAppHandler) {
+  server.registerTool(
+    'send_message',
+    { description: 'Send a WhatsApp-Message to a given JID.', inputSchema: SendMessageSchema },
+    args => sync.sendMessage(args.jid, args.message).then(messageToText).then(toCallResult).catch(toCallError),
+  )
+}
+
+const messageToText = (message: WAMessage): string => {
+  return `Message sent to ${message.key.remoteJid ?? 'unknown'}: "${message.message?.conversation ?? 'unknown'}"`
+}
+
+function registerChatTools(server: McpServer, sync: WhatsAppHandler) {
+  server.registerTool(
+    'set_chat_archived',
+    { description: 'Set a WhatsApp chat as archived or unarchived.', inputSchema: ArchiveChatSchema },
+    args => sync.setArchived(args.jid, args.archived).then(() => `Chat ${args.jid} archived status set to ${args.archived.toString()}`).then(toCallResult).catch(toCallError),
+  )
+  server.registerTool(
+    'set_chat_read',
+    { description: 'Set a WhatsApp chat as read or unread.', inputSchema: ReadChatSchema },
+    args => sync.setRead(args.jid, args.read).then(() => `Chat ${args.jid} read status set to ${args.read.toString()}`).then(toCallResult).catch(toCallError),
+  )
+}
+
+const JidSchema = z.union([
+  z.string().min(1, 'JID is required').endsWith('@s.whatsapp.net', 'JID not a valid WhatsApp JID)'),
+  z.string().min(1, 'JID is required').endsWith('@g.us', 'JID not a valid WhatsApp JID)'),
+]).describe('The JID of the recipient or chat. For example 41791234567@s.whatsapp.net for an individual or 1234567890-1234567890@g.us for a group')
+
 const SendMessageSchema = z.object({
-  to: z.string().min(1, "Recipient is required"),
-  message: z.string().min(1, "Message body is required"),
-});
+  jid: JidSchema,
+  message: z.string()
+    .min(1, 'Message body is required')
+    .describe('The body of the message to be sent. Can contain unicode characters like emojis.'),
+})
+
+const ArchiveChatSchema = z.object({
+  jid: JidSchema,
+  archived: z.boolean()
+    .describe('Whether the chat should be archived (true) or unarchived (false).'),
+})
+
+const ReadChatSchema = z.object({
+  jid: JidSchema,
+  read: z.boolean()
+    .describe('Whether the chat should be marked as read (true) or unread (false).'),
+})
+
+const toCallResult = (t: string): CallToolResult => ({ content: [{ type: 'text', text: t }], isError: false })
+const toCallError = (error: Error): CallToolResult => ({ content: [{ type: 'text', text: `Error: ${error.message}` }], isError: true })
+
+/*
 
 const ListChatsSchema = z.object({
   limit: z.number().int().positive().optional().default(20),

@@ -1,14 +1,17 @@
-import makeWASocket, { WABrowserDescription, ConnectionState } from '@whiskeysockets/baileys'
+import makeWASocket, { WABrowserDescription, ConnectionState, WAMessage, proto } from '@whiskeysockets/baileys'
 import { createStore } from './store.js'
 
 export type SyncStatus = { type: 'connecting' } | { type: 'needAuth', qr: string } | { type: 'ready' } | { type: 'closed', error?: Error }
 
-export interface SyncHandler {
+export interface WhatsAppHandler {
   close: () => void
   getStatus: () => SyncStatus
+  sendMessage: (jid: string, text: string) => Promise<WAMessage>
+  setRead: (jid: string, read: boolean) => Promise<void>
+  setArchived: (jid: string, archived: boolean) => Promise<void>
 }
 
-export function createSyncHandler(store: ReturnType<typeof createStore>): SyncHandler {
+export function createHandler(store: ReturnType<typeof createStore>): WhatsAppHandler {
   let state: SyncStatus = { type: 'connecting' }
   let sock: ReturnType<typeof makeWASocket> | undefined
   const browser = ['Gutschi.site', 'Desktop', '1.0.0'] as WABrowserDescription
@@ -72,10 +75,54 @@ export function createSyncHandler(store: ReturnType<typeof createStore>): SyncHa
     store.bind(sock.ev)
   }
 
+  async function sendMessage(jid: string, message: string): Promise<WAMessage> {
+    if (state.type === 'connecting') throw new Error('Server still connecting, please wait')
+    if (state.type === 'closed') throw new Error('Connection closed, please restart server')
+    if (state.type === 'needAuth') throw new Error('Authentication needed, please authenticate yourself first')
+    if (sock === undefined) throw new Error(`No Socket defined but state is ${state.type}. This is invalid, please restart server`)
+    const result = await sock.sendMessage(jid, { text: message })
+    if (!result) throw new Error(`Failed to send message to ${jid}`)
+    return result
+  }
+
+  async function setArchived(jid: string, archived: boolean): Promise<void> {
+    if (state.type === 'connecting') throw new Error('Server still connecting, please wait')
+    if (state.type === 'closed') throw new Error('Connection closed, please restart server')
+    if (state.type === 'needAuth') throw new Error('Authentication needed, please authenticate yourself first')
+    if (sock === undefined) throw new Error(`No Socket defined but state is ${state.type}. This is invalid, please restart server`)
+    const chat = store.getChat(jid)
+    if (!chat) throw new Error(`No chat found for ${jid}`)
+    const lastMessage = chat.messages?.[0].message
+    if (!lastMessage) {
+      await sock.chatModify({ archive: archived, lastMessages: [] }, jid)
+      return
+    }
+    if (!lastMessage.key) throw new Error(`Last message for ${jid} has no key, cannot archive chat`)
+    await sock.chatModify({ archive: archived, lastMessages: [lastMessage as proto.IWebMessageInfo & { key: typeof lastMessage.key }] }, jid)
+  }
+
+  async function setRead(jid: string, read: boolean): Promise<void> {
+    if (state.type === 'connecting') throw new Error('Server still connecting, please wait')
+    if (state.type === 'closed') throw new Error('Connection closed, please restart server')
+    if (state.type === 'needAuth') throw new Error('Authentication needed, please authenticate yourself first')
+    if (sock === undefined) throw new Error(`No Socket defined but state is ${state.type}. This is invalid, please restart server`)
+    const chat = store.getChat(jid)
+    if (!chat) throw new Error(`No chat found for ${jid}`)
+    const lastMessage = chat.messages?.[0].message
+    if (!lastMessage) {
+      await sock.chatModify({ markRead: read, lastMessages: [] }, jid)
+      return
+    }
+    if (!lastMessage.key) throw new Error(`Last message for ${jid} has no key, cannot mark chat as unread`)
+    await sock.chatModify({ markRead: read, lastMessages: [lastMessage as proto.IWebMessageInfo & { key: typeof lastMessage.key }] }, jid)
+  }
   start()
 
   return {
     getStatus: () => state,
+    sendMessage: sendMessage,
+    setArchived: setArchived,
+    setRead: setRead,
     close: close,
   }
 }

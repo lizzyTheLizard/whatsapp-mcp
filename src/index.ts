@@ -3,7 +3,7 @@
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { createStore, DataStore } from './store.js'
-import { createSyncHandler } from './sync.js'
+import { createHandler } from './sync.js'
 import { promises as fsp } from 'fs'
 import { registerWhatsAppTools } from './tools.js'
 
@@ -32,7 +32,7 @@ async function main() {
   const transport = new StdioServerTransport()
   const inputData = await readDataFromFile()
   const whatsappStore = createStore(writeDataToFile, inputData)
-  const whatsappSync = createSyncHandler(whatsappStore)
+  const whatsappSync = createHandler(whatsappStore)
   registerWhatsAppTools(server, whatsappStore, whatsappSync)
   await server.connect(transport)
   console.info('whatsapp-mcp server running on stdio')
