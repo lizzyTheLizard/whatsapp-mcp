@@ -6,7 +6,9 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { createStore, DataStore } from './store.js'
 import { createHandler } from './sync.js'
 import { promises as fsp } from 'fs'
-import { registerWhatsAppTools } from './tools.js'
+import { registerContactResources } from './tools/contactTools.js'
+import { registerChatTools } from './tools/chatTools.js'
+import { registerMessageTools } from './tools/messageTools.js'
 
 const dataDir = process.env.DATA_DIR ?? './data'
 
@@ -34,7 +36,9 @@ async function main() {
   const inputData = await readDataFromFile()
   const whatsappStore = createStore(writeDataToFile, inputData)
   const whatsappSync = createHandler(whatsappStore)
-  registerWhatsAppTools(server, whatsappStore, whatsappSync)
+  registerContactResources(server, whatsappStore)
+  registerChatTools(server, whatsappStore, whatsappSync)
+  registerMessageTools(server, whatsappStore, whatsappSync)
   await server.connect(transport)
   console.info('whatsapp-mcp server running on stdio')
 }
