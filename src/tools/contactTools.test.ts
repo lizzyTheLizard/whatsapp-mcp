@@ -83,7 +83,6 @@ describe('contacts resources', () => {
   it.each([
     ['connecting', { type: 'connecting' }] as const,
     ['closed', { type: 'closed' }] as const,
-    ['needAuth', { type: 'needAuth', qr: 'qr' }] as const,
   ])('throws when status is %s in contacts resource handler', async (_, status) => {
     const server = createMockServer()
     const store = createMockStore()
@@ -96,10 +95,26 @@ describe('contacts resources', () => {
     await expect(async () => handler()).rejects.toThrow()
   })
 
+  it('returns QR code when status is needAuth in contacts resource handler', async () => {
+    const server = createMockServer()
+    const store = createMockStore()
+    const sync = createMockSync({ type: 'needAuth', qr: 'test-qr-data' })
+
+    registerContactResources(server, store, sync)
+    const call = server.registerResource.mock.calls.find((c: string[]) => c[0] === 'contacts')
+    const handler = call?.[3] as () => Promise<ReadResourceResult>
+
+    const result = await handler()
+    expect(result.contents).toHaveLength(3)
+    expect(result.contents[0].uri).toBe('qrcode://app/explanation')
+    expect(result.contents[1].mimeType).toBe('image/png')
+    expect('blob' in result.contents[1]).toBe(true)
+    expect(result.contents[2]).toMatchObject({ uri: 'qrcode://app/raw', text: 'test-qr-data' })
+  })
+
   it.each([
     ['connecting', { type: 'connecting' }] as const,
     ['closed', { type: 'closed' }] as const,
-    ['needAuth', { type: 'needAuth', qr: 'qr' }] as const,
   ])('throws when status is %s in single contact resource handler', async (_, status) => {
     const server = createMockServer()
     const store = createMockStore()
@@ -110,5 +125,22 @@ describe('contacts resources', () => {
     const handler = call?.[3] as (input: undefined, params: { contactId: string }) => Promise<ReadResourceResult>
 
     await expect(async () => handler(undefined, { contactId: 'c1' })).rejects.toThrow()
+  })
+
+  it('returns QR code when status is needAuth in single contact resource handler', async () => {
+    const server = createMockServer()
+    const store = createMockStore()
+    const sync = createMockSync({ type: 'needAuth', qr: 'test-qr-data' })
+
+    registerContactResources(server, store, sync)
+    const call = server.registerResource.mock.calls.find((c: string[]) => c[0] === 'contact')
+    const handler = call?.[3] as (input: undefined, params: { contactId: string }) => Promise<ReadResourceResult>
+
+    const result = await handler(undefined, { contactId: 'c1' })
+    expect(result.contents).toHaveLength(3)
+    expect(result.contents[0].uri).toBe('qrcode://app/explanation')
+    expect(result.contents[1].mimeType).toBe('image/png')
+    expect('blob' in result.contents[1]).toBe(true)
+    expect(result.contents[2]).toMatchObject({ uri: 'qrcode://app/raw', text: 'test-qr-data' })
   })
 })

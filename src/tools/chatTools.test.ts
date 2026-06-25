@@ -70,7 +70,6 @@ describe('set_chat_archived handler', () => {
   it.each([
     ['connecting', { type: 'connecting' } as const, 'Server still connecting, please wait'],
     ['closed', { type: 'closed' } as const, 'Connection closed, please restart server'],
-    ['needAuth', { type: 'needAuth', qr: 'qr' } as const, 'Authentication needed, please authenticate yourself first'],
   ])('returns error when status is %s', async (_, status, expectedMsg) => {
     const server = createMockServer()
     const store = createMockStore()
@@ -83,6 +82,24 @@ describe('set_chat_archived handler', () => {
     const result: CallToolResult = await handler({ jid: 'user@s.whatsapp.net', archived: true })
     expect(result.isError).toBe(true)
     expect(result.content[0]).toEqual({ text: `Error: ${expectedMsg}`, type: 'text' })
+    expect(sync.setArchived).not.toHaveBeenCalled()
+  })
+
+  it('returns QR code when status is needAuth', async () => {
+    const server = createMockServer()
+    const store = createMockStore()
+    const sync = createMockSync({ type: 'needAuth', qr: 'test-qr-data' })
+
+    registerChatTools(server, store, sync)
+    const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'set_chat_archived')
+    const handler = tool?.[2] as (input: { jid: string, archived: boolean }) => Promise<CallToolResult>
+
+    const result: CallToolResult = await handler({ jid: 'user@s.whatsapp.net', archived: true })
+    expect(result.isError).toBe(false)
+    expect(result.content[0].type).toBe('text')
+    expect(result.content[1].type).toBe('image')
+    expect((result.content[1] as { mimeType: string }).mimeType).toBe('image/png')
+    expect(result.content[2]).toEqual({ type: 'text', text: 'test-qr-data' })
     expect(sync.setArchived).not.toHaveBeenCalled()
   })
 })
@@ -106,7 +123,6 @@ describe('set_chat_read handler', () => {
   it.each([
     ['connecting', { type: 'connecting' } as const, 'Server still connecting, please wait'],
     ['closed', { type: 'closed' } as const, 'Connection closed, please restart server'],
-    ['needAuth', { type: 'needAuth', qr: 'qr' } as const, 'Authentication needed, please authenticate yourself first'],
   ])('returns error when status is %s', async (_, status, expectedMsg) => {
     const server = createMockServer()
     const store = createMockStore()
@@ -119,6 +135,24 @@ describe('set_chat_read handler', () => {
     const result: CallToolResult = await handler({ jid: 'user@s.whatsapp.net', read: true })
     expect(result.isError).toBe(true)
     expect(result.content[0]).toEqual({ text: `Error: ${expectedMsg}`, type: 'text' })
+    expect(sync.setRead).not.toHaveBeenCalled()
+  })
+
+  it('returns QR code when status is needAuth', async () => {
+    const server = createMockServer()
+    const store = createMockStore()
+    const sync = createMockSync({ type: 'needAuth', qr: 'test-qr-data' })
+
+    registerChatTools(server, store, sync)
+    const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'set_chat_read')
+    const handler = tool?.[2] as (input: { jid: string, read: boolean }) => Promise<CallToolResult>
+
+    const result: CallToolResult = await handler({ jid: 'user@s.whatsapp.net', read: true })
+    expect(result.isError).toBe(false)
+    expect(result.content[0].type).toBe('text')
+    expect(result.content[1].type).toBe('image')
+    expect((result.content[1] as { mimeType: string }).mimeType).toBe('image/png')
+    expect(result.content[2]).toEqual({ type: 'text', text: 'test-qr-data' })
     expect(sync.setRead).not.toHaveBeenCalled()
   })
 })
@@ -157,7 +191,6 @@ describe('chats resources', () => {
   it.each([
     ['connecting', { type: 'connecting' }] as const,
     ['closed', { type: 'closed' }] as const,
-    ['needAuth', { type: 'needAuth', qr: 'qr' }] as const,
   ])('throws when status is %s in chats resource handler', async (_, status) => {
     const server = createMockServer()
     const store = createMockStore()
@@ -170,10 +203,26 @@ describe('chats resources', () => {
     await expect(async () => handler()).rejects.toThrow()
   })
 
+  it('returns QR code when status is needAuth in chats resource handler', async () => {
+    const server = createMockServer()
+    const store = createMockStore()
+    const sync = createMockSync({ type: 'needAuth', qr: 'test-qr-data' })
+
+    registerChatTools(server, store, sync)
+    const call = server.registerResource.mock.calls.find((c: string[]) => c[0] === 'chats')
+    const handler = call?.[3] as () => Promise<ReadResourceResult>
+
+    const result = await handler()
+    expect(result.contents).toHaveLength(3)
+    expect(result.contents[0].uri).toBe('qrcode://app/explanation')
+    expect(result.contents[1].mimeType).toBe('image/png')
+    expect('blob' in result.contents[1]).toBe(true)
+    expect(result.contents[2]).toMatchObject({ uri: 'qrcode://app/raw', text: 'test-qr-data' })
+  })
+
   it.each([
     ['connecting', { type: 'connecting' }] as const,
     ['closed', { type: 'closed' }] as const,
-    ['needAuth', { type: 'needAuth', qr: 'qr' }] as const,
   ])('throws when status is %s in single chat resource handler', async (_, status) => {
     const server = createMockServer()
     const store = createMockStore()
@@ -184,5 +233,22 @@ describe('chats resources', () => {
     const handler = call?.[3] as (input: undefined, params: { chatId: string }) => Promise<ReadResourceResult>
 
     await expect(async () => handler(undefined, { chatId: 'c1' })).rejects.toThrow()
+  })
+
+  it('returns QR code when status is needAuth in single chat resource handler', async () => {
+    const server = createMockServer()
+    const store = createMockStore()
+    const sync = createMockSync({ type: 'needAuth', qr: 'test-qr-data' })
+
+    registerChatTools(server, store, sync)
+    const call = server.registerResource.mock.calls.find((c: string[]) => c[0] === 'chat')
+    const handler = call?.[3] as (input: undefined, params: { chatId: string }) => Promise<ReadResourceResult>
+
+    const result = await handler(undefined, { chatId: 'c1' })
+    expect(result.contents).toHaveLength(3)
+    expect(result.contents[0].uri).toBe('qrcode://app/explanation')
+    expect(result.contents[1].mimeType).toBe('image/png')
+    expect('blob' in result.contents[1]).toBe(true)
+    expect(result.contents[2]).toMatchObject({ uri: 'qrcode://app/raw', text: 'test-qr-data' })
   })
 })

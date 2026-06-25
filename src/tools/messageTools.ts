@@ -2,7 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { type WhatsAppStore } from '../store.js'
 import { WhatsAppHandler } from '../sync.js'
 import z from 'zod'
-import { JidSchema, registerEntityResources, withErrorHandling, toCallResult, toCallError } from './common.js'
+import { JidSchema, registerEntityResources, registerTool } from './common.js'
 
 export function registerMessageTools(server: McpServer, store: WhatsAppStore, sync: WhatsAppHandler) {
   registerEntityResources(
@@ -12,15 +12,13 @@ export function registerMessageTools(server: McpServer, store: WhatsAppStore, sy
     () => sync.getStatus(),
   )
 
-  server.registerTool(
+  registerTool<z.infer<typeof SendMessageSchema>>(
+    server,
     'send_message',
-    { description: 'Send a WhatsApp-Message to a given JID.', inputSchema: SendMessageSchema },
-    async args => withErrorHandling(
-      () => sync.getStatus(),
-      () => sync.sendMessage(args.jid, args.message),
-      msg => toCallResult(`Message sent to ${msg.key.remoteJid ?? 'unknown'}: "${msg.message?.conversation ?? 'unknown'}"`),
-      e => toCallError(e),
-    ),
+    SendMessageSchema,
+    'Send a WhatsApp-Message to a given JID.',
+    async (args) => { await sync.sendMessage(args.jid, args.message); return `Message sent to ${args.jid}: "${args.message}"` },
+    () => sync.getStatus(),
   )
 }
 

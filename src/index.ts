@@ -13,6 +13,7 @@ import { parseArgs, ParseArgsOptionsConfig } from 'node:util'
 import { registerContactResources } from './tools/contactTools.js'
 import { registerChatTools } from './tools/chatTools.js'
 import { registerMessageTools } from './tools/messageTools.js'
+import { registerAuthTools } from './tools/authTools.js'
 
 const dataDir = process.env.DATA_DIR ?? './data'
 
@@ -52,6 +53,7 @@ async function main() {
   registerContactResources(server, whatsappStore, whatsappSync)
   registerChatTools(server, whatsappStore, whatsappSync)
   registerMessageTools(server, whatsappStore, whatsappSync)
+  registerAuthTools(server, whatsappStore, whatsappSync)
 
   if (values.host || values.port) {
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => randomUUID() })
