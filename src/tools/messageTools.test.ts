@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, Mock } from 'vitest'
 import { registerMessageTools } from './messageTools.js'
 import type { WhatsAppStore } from '../store.js'
-import type { WhatsAppHandler } from '../sync.js'
+import type { WhatsAppHandler, SyncStatus } from '../sync.js'
 import type { CallToolResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types.js'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
@@ -26,10 +26,10 @@ function createMockStore(): WhatsAppStore {
   }
 }
 
-function createMockSync(): WhatsAppHandler {
+function createMockSync(status: SyncStatus = { type: 'ready' }): WhatsAppHandler {
   return {
     close: vi.fn(),
-    getStatus: vi.fn(),
+    getStatus: vi.fn().mockReturnValue(status),
     sendMessage: vi.fn(),
     setArchived: vi.fn(),
     setRead: vi.fn(),
@@ -70,6 +70,25 @@ describe('send_message handler', () => {
     expect(result.isError).toBe(true)
     expect(result.content[0]).toEqual({ text: 'Error: connection lost', type: 'text' })
   })
+
+  it.each([
+    ['connecting', { type: 'connecting' } as const, 'Server still connecting, please wait'],
+    ['closed', { type: 'closed' } as const, 'Connection closed, please restart server'],
+    ['needAuth', { type: 'needAuth', qr: 'qr' } as const, 'Authentication needed, please authenticate yourself first'],
+  ])('returns error when status is %s', async (_, status, expectedMsg) => {
+    const server = createMockServer()
+    const store = createMockStore()
+    const sync = createMockSync(status)
+
+    registerMessageTools(server, store, sync)
+    const sendMessageTool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'send_message')
+    const handler = sendMessageTool?.[2] as (input: { jid: string, message: string }) => Promise<CallToolResult>
+
+    const result: CallToolResult = await handler({ jid: 'user@s.whatsapp.net', message: 'Hello!' })
+    expect(result.isError).toBe(true)
+    expect(result.content[0]).toEqual({ text: `Error: ${expectedMsg}`, type: 'text' })
+    expect(sync.sendMessage).not.toHaveBeenCalled()
+  })
 })
 
 describe('messages resources', () => {
@@ -101,5 +120,37 @@ describe('messages resources', () => {
     const result: ReadResourceResult = await handler(undefined, { messageId: 'm1' })
     expect(result.contents).toHaveLength(1)
     expect(result.contents[0].uri).toBe('messages://app/m1')
+  })
+
+  it.each([
+    ['connecting', { type: 'connecting' }] as const,
+    ['closed', { type: 'closed' }] as const,
+    ['needAuth', { type: 'needAuth', qr: 'qr' }] as const,
+  ])('throws when status is %s in messages resource handler', async (_, status) => {
+    const server = createMockServer()
+    const store = createMockStore()
+    const sync = createMockSync(status)
+
+    registerMessageTools(server, store, sync)
+    const call = server.registerResource.mock.calls.find((c: string[]) => c[0] === 'messages')
+    const handler = call?.[3] as () => Promise<ReadResourceResult>
+
+    await expect(async () => handler()).rejects.toThrow()
+  })
+
+  it.each([
+    ['connecting', { type: 'connecting' }] as const,
+    ['closed', { type: 'closed' }] as const,
+    ['needAuth', { type: 'needAuth', qr: 'qr' }] as const,
+  ])('throws when status is %s in single message resource handler', async (_, status) => {
+    const server = createMockServer()
+    const store = createMockStore()
+    const sync = createMockSync(status)
+
+    registerMessageTools(server, store, sync)
+    const call = server.registerResource.mock.calls.find((c: string[]) => c[0] === 'message')
+    const handler = call?.[3] as (input: undefined, params: { messageId: string }) => Promise<ReadResourceResult>
+
+    await expect(async () => handler(undefined, { messageId: 'm1' })).rejects.toThrow()
   })
 })
