@@ -1,9 +1,23 @@
 {
   "name": "@lizzythelizard/whatsapp-mcp",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "MCP server for WhatsApp integration",
   "type": "module",
   "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lizzyTheLizard/whatsapp-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lizzyTheLizard/whatsapp-mcp/issues"
+  },
+  "homepage": "https://github.com/lizzyTheLizard/whatsapp-mcp#readme",
   "publishConfig": {
     "access": "public"
   },
