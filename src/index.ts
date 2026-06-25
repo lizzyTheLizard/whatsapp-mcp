@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+import pkg from '../package.json' with { type: 'json' }
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { createStore, DataStore } from './store.js'
 import { createHandler } from './sync.js'
@@ -28,7 +29,7 @@ async function writeDataToFile(data: DataStore): Promise<void> {
 }
 
 async function main() {
-  const server = new McpServer({ name: 'whatsapp-mcp', version: '0.1.0' })
+  const server = new McpServer({ name: pkg.name, version: pkg.version })
   const transport = new StdioServerTransport()
   const inputData = await readDataFromFile()
   const whatsappStore = createStore(writeDataToFile, inputData)
