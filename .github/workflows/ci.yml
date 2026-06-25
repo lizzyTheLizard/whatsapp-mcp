@@ -19,6 +19,9 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm run build
+      - name: Check version can be published
+        run: npm publish --dry-run
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
