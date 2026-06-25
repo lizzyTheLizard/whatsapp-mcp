@@ -22,4 +22,4 @@ COPY --from=build /app/dist ./dist
 
 USER appuser
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/index.js", "--host", "localhost", "--port", "3100"]
