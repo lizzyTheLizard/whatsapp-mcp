@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, Mock } from 'vitest'
 import { registerContactResources } from './contactTools.js'
 import type { WhatsAppStore } from '../store.js'
-import type { ReadResourceResult } from '@modelcontextprotocol/sdk/types'
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp'
+import type { ReadResourceResult } from '@modelcontextprotocol/sdk/types.js'
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 function createMockServer(): McpServer & { registerResource: Mock, registerTool: Mock } {
   return {

@@ -1,5 +1,5 @@
-import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp'
-import { type CallToolResult, type ListResourcesResult, type ReadResourceResult } from '@modelcontextprotocol/sdk/types'
+import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { type CallToolResult, type ListResourcesResult, type ReadResourceResult } from '@modelcontextprotocol/sdk/types.js'
 import z from 'zod'
 
 export const toReadResource = (contents: ReadResourceResult['contents']) => ({ contents })
