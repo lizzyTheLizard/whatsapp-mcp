@@ -20,11 +20,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Check version can be published
-        run: npm publish --dry-run
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - name: Check version can be published
+        run: npm publish --dry-run
 
   docker:
     runs-on: ubuntu-latest
