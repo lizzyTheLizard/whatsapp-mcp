@@ -1,4 +1,4 @@
-import makeWASocket, { AuthenticationState, BaileysEventMap, BufferJSON, Chat, Contact, WAMessage, WAMessageKey } from '@whiskeysockets/baileys'
+import { AuthenticationState, BaileysEventMap, BufferJSON, Chat, Contact, WAMessage, WAMessageKey } from '@whiskeysockets/baileys'
 import { createExportableAuth } from './auth.js'
 
 export interface ChatWithId extends Chat {
@@ -13,8 +13,12 @@ export interface MessageWithId extends WAMessage {
   key: WAMessageKey & { id: string }
 }
 
+export interface Emitter {
+  process: (processor: (e: Partial<BaileysEventMap>) => void) => void
+}
+
 export interface WhatsAppStore {
-  bind: (ev: ReturnType<typeof makeWASocket>['ev']) => void
+  bind: (ev: Emitter) => void
   getChats: () => ChatWithId[]
   getChat: (id: string) => ChatWithId | undefined
   getContacts: () => ContactWithId[]
@@ -160,7 +164,7 @@ export function createStore(saveCb?: (data: DataStore) => Promise<void>, initial
   }
 
   return {
-    bind: ev => ev.process(process),
+    bind: (ev) => { ev.process(process) },
     getChats: () => Array.from(chats.values()),
     getChat: id => chats.get(id),
     getContacts: () => Array.from(contacts.values()),
