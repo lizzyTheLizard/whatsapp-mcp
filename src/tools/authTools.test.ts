@@ -87,3 +87,36 @@ describe('get_auth_qr handler', () => {
     expect(result.content[0]).toEqual({ text: 'Error: Authentication is not required at this time.', type: 'text' })
   })
 })
+
+describe('get_status handler', () => {
+  it('registers the get_status tool', () => {
+    const server = createMockServer()
+    const store = createMockStore()
+    const sync = createMockSync()
+
+    registerAuthTools(server, store, sync)
+
+    const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'get_status')
+    expect(tool).toBeDefined()
+    expect((tool as unknown[])[1]).toMatchObject({ description: 'Get the current server status.' })
+  })
+
+  it.each([
+    ['ready', { type: 'ready' } as const],
+    ['needAuth', { type: 'needAuth', qr: 'test-qr-data' } as const],
+    ['connecting', { type: 'connecting' } as const],
+    ['closed', { type: 'closed' } as const],
+  ])('returns error when status is %s', async (_, status) => {
+    const server = createMockServer()
+    const store = createMockStore()
+    const sync = createMockSync(status)
+
+    registerAuthTools(server, store, sync)
+    const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'get_status')
+    const handler = tool?.[2] as () => Promise<CallToolResult>
+
+    const result: CallToolResult = await handler()
+    expect(result.isError).toBe(false)
+    expect(result.content[0]).toEqual({ text: status.type, type: 'text' })
+  })
+})

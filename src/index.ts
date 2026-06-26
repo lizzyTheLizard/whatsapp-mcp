@@ -4,8 +4,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import pkg from '../package.json' with { type: 'json' }
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { createStore, DataStore, WhatsAppStore } from './store.js'
-import { createHandler, WhatsAppHandler } from './sync.js'
+import { createStore, DataStore } from './store.js'
+import { createHandler } from './sync.js'
 import { promises as fsp } from 'fs'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
@@ -14,7 +14,7 @@ import { registerContactResources } from './tools/contactTools.js'
 import { registerChatTools } from './tools/chatTools.js'
 import { registerMessageTools } from './tools/messageTools.js'
 import { registerAuthTools } from './tools/authTools.js'
-import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
+import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 
@@ -25,14 +25,20 @@ const cliOptions: ParseArgsOptionsConfig = {
   port: { type: 'string', short: 'p', multiple: false },
 }
 
-export async function startServer(transport: Transport, store: WhatsAppStore, sync: WhatsAppHandler): Promise<{ server: McpServer, store: WhatsAppStore, sync: WhatsAppHandler }> {
+export async function startServer(transport: Transport): Promise<() => Promise<void>> {
+  const inputData = await readDataFromFile()
+  const store = createStore(writeDataToFile, inputData)
+  const sync = createHandler(store)
   const server = new McpServer({ name: pkg.name, version: pkg.version })
   registerContactResources(server, store, sync)
   registerChatTools(server, store, sync)
   registerMessageTools(server, store, sync)
   registerAuthTools(server, store, sync)
   await server.connect(transport)
-  return { server, store, sync }
+  return async () => {
+    sync.close()
+    await server.close()
+  }
 }
 
 async function readDataFromFile(): Promise<DataStore | undefined> {
@@ -59,14 +65,11 @@ async function main() {
     args: process.argv.slice(2),
     allowPositionals: false,
   })
-  const inputData = await readDataFromFile()
-  const whatsappStore = createStore(writeDataToFile, inputData)
-  const whatsappSync = createHandler(whatsappStore)
-
   if (values.host || values.port) {
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => randomUUID() })
     const httpServer = createServer((req, res) => { void transport.handleRequest(req, res) })
-    await startServer(transport, whatsappStore, whatsappSync)
+    const closeCB = await startServer(transport)
+    httpServer.on('close', () => { void closeCB() })
     const port: number = values.port ? parseInt(values.port as string, 10) : 3100
     if (Number.isNaN(port)) {
       console.error('Invalid port number')
@@ -78,7 +81,8 @@ async function main() {
   }
   else {
     const transport = new StdioServerTransport()
-    await startServer(transport, whatsappStore, whatsappSync)
+    const closeCB = await startServer(transport)
+    process.on('exit', () => { void closeCB() })
     console.info('whatsapp-mcp server running on stdio')
   }
 }

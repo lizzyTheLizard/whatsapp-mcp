@@ -28,6 +28,20 @@ export function registerAuthTools(server: McpServer, store: WhatsAppStore, sync:
       }
     },
   )
+
+  server.registerTool<ZodRawShapeCompat>(
+    'get_status',
+    { description: 'Get the current server status.' },
+    () => {
+      try {
+        const status = sync.getStatus()
+        return { content: [{ type: 'text', text: status.type }], isError: false }
+      }
+      catch (e) {
+        return toCallError(e as Error)
+      }
+    },
+  )
 }
 
 const qrExplanation = `⚠️ Authentication Required
