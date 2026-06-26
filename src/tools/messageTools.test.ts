@@ -74,6 +74,7 @@ describe('send_message handler', () => {
   it.each([
     ['connecting', { type: 'connecting' } as const, 'Server still connecting, please wait'],
     ['closed', { type: 'closed' } as const, 'Connection closed, please restart server'],
+    ['needAuth', { type: 'needAuth', qr: 'test-qr-data' } as const, 'Authentication required, please call the "get_auth_qr" tool to get a QR code for authentication'],
   ])('returns error when status is %s', async (_, status, expectedMsg) => {
     const server = createMockServer()
     const store = createMockStore()
@@ -86,24 +87,6 @@ describe('send_message handler', () => {
     const result: CallToolResult = await handler({ jid: 'user@s.whatsapp.net', message: 'Hello!' })
     expect(result.isError).toBe(true)
     expect(result.content[0]).toEqual({ text: `Error: ${expectedMsg}`, type: 'text' })
-    expect(sync.sendMessage).not.toHaveBeenCalled()
-  })
-
-  it('returns QR code when status is needAuth', async () => {
-    const server = createMockServer()
-    const store = createMockStore()
-    const sync = createMockSync({ type: 'needAuth', qr: 'test-qr-data' })
-
-    registerMessageTools(server, store, sync)
-    const sendMessageTool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'send_message')
-    const handler = sendMessageTool?.[2] as (input: { jid: string, message: string }) => Promise<CallToolResult>
-
-    const result: CallToolResult = await handler({ jid: 'user@s.whatsapp.net', message: 'Hello!' })
-    expect(result.isError).toBe(false)
-    expect(result.content[0].type).toBe('text')
-    expect(result.content[1].type).toBe('image')
-    expect((result.content[1] as { mimeType: string }).mimeType).toBe('image/png')
-    expect(result.content[2]).toEqual({ type: 'text', text: 'test-qr-data' })
     expect(sync.sendMessage).not.toHaveBeenCalled()
   })
 })
@@ -142,6 +125,7 @@ describe('messages resources', () => {
   it.each([
     ['connecting', { type: 'connecting' }] as const,
     ['closed', { type: 'closed' }] as const,
+    ['needAuth', { type: 'needAuth', qr: 'test-qr-data' }] as const,
   ])('throws when status is %s in messages resource handler', async (_, status) => {
     const server = createMockServer()
     const store = createMockStore()
@@ -154,26 +138,10 @@ describe('messages resources', () => {
     await expect(async () => handler()).rejects.toThrow()
   })
 
-  it('returns QR code when status is needAuth in messages resource handler', async () => {
-    const server = createMockServer()
-    const store = createMockStore()
-    const sync = createMockSync({ type: 'needAuth', qr: 'test-qr-data' })
-
-    registerMessageTools(server, store, sync)
-    const call = server.registerResource.mock.calls.find((c: string[]) => c[0] === 'messages')
-    const handler = call?.[3] as () => Promise<ReadResourceResult>
-
-    const result = await handler()
-    expect(result.contents).toHaveLength(3)
-    expect(result.contents[0].uri).toBe('qrcode://app/explanation')
-    expect(result.contents[1].mimeType).toBe('image/png')
-    expect('blob' in result.contents[1]).toBe(true)
-    expect(result.contents[2]).toMatchObject({ uri: 'qrcode://app/raw', text: 'test-qr-data' })
-  })
-
   it.each([
     ['connecting', { type: 'connecting' }] as const,
     ['closed', { type: 'closed' }] as const,
+    ['needAuth', { type: 'needAuth', qr: 'test-qr-data' }] as const,
   ])('throws when status is %s in single message resource handler', async (_, status) => {
     const server = createMockServer()
     const store = createMockStore()
@@ -184,22 +152,5 @@ describe('messages resources', () => {
     const handler = call?.[3] as (input: undefined, params: { messageId: string }) => Promise<ReadResourceResult>
 
     await expect(async () => handler(undefined, { messageId: 'm1' })).rejects.toThrow()
-  })
-
-  it('returns QR code when status is needAuth in single message resource handler', async () => {
-    const server = createMockServer()
-    const store = createMockStore()
-    const sync = createMockSync({ type: 'needAuth', qr: 'test-qr-data' })
-
-    registerMessageTools(server, store, sync)
-    const call = server.registerResource.mock.calls.find((c: string[]) => c[0] === 'message')
-    const handler = call?.[3] as (input: undefined, params: { messageId: string }) => Promise<ReadResourceResult>
-
-    const result = await handler(undefined, { messageId: 'm1' })
-    expect(result.contents).toHaveLength(3)
-    expect(result.contents[0].uri).toBe('qrcode://app/explanation')
-    expect(result.contents[1].mimeType).toBe('image/png')
-    expect('blob' in result.contents[1]).toBe(true)
-    expect(result.contents[2]).toMatchObject({ uri: 'qrcode://app/raw', text: 'test-qr-data' })
   })
 })
