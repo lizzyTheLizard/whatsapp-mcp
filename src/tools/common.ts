@@ -1,5 +1,5 @@
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { type CallToolResult, type ListResourcesResult, type ReadResourceResult, type TextResourceContents, type BlobResourceContents } from '@modelcontextprotocol/sdk/types.js'
+import { type CallToolResult, type ListResourcesResult, type ReadResourceResult } from '@modelcontextprotocol/sdk/types.js'
 import { type SyncStatus } from '../sync.js'
 import z, { ZodType } from 'zod'
 import { ZodRawShapeCompat } from '@modelcontextprotocol/sdk/server/zod-compat.js'

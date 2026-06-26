@@ -1,8 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { toCallError, withErrorHandling } from './common.js'
+import { toCallError } from './common.js'
 import { WhatsAppStore } from '../store.js'
 import { WhatsAppHandler } from '../sync.js'
-import { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import QRCode from 'qrcode'
 import { ZodRawShapeCompat } from '@modelcontextprotocol/sdk/server/zod-compat.js'
 
@@ -10,26 +9,25 @@ export function registerAuthTools(server: McpServer, store: WhatsAppStore, sync:
   server.registerTool<ZodRawShapeCompat>(
     'get_auth_qr',
     { description: 'Get a QR code for WhatsApp authentication.' },
-    async () => withErrorHandling(
-      () => sync.getStatus(),
-      () => getQrCode(sync),
-      e => toCallError(e),
-    ),
+    async () => {
+      try {
+        const status = sync.getStatus()
+        if (status.type !== 'needAuth') throw new Error('Authentication is not required at this time.')
+        const pngBuffer = await QRCode.toBuffer(status.qr, { type: 'png', width: 400, margin: 2 })
+        return {
+          content: [
+            { type: 'text', text: qrExplanation },
+            { type: 'image', data: pngBuffer.toString('base64'), mimeType: 'image/png' },
+            { type: 'text', text: status.qr },
+          ],
+          isError: false,
+        }
+      }
+      catch (e) {
+        return toCallError(e as Error)
+      }
+    },
   )
-}
-
-async function getQrCode(sync: WhatsAppHandler): Promise<CallToolResult> {
-  const status = sync.getStatus()
-  if (status.type !== 'needAuth') throw new Error('Authentication is not required at this time.')
-  const pngBuffer = await QRCode.toBuffer(status.qr, { type: 'png', width: 400, margin: 2 })
-  return {
-    content: [
-      { type: 'text', text: qrExplanation },
-      { type: 'image', data: pngBuffer.toString('base64'), mimeType: 'image/png' },
-      { type: 'text', text: status.qr },
-    ],
-    isError: false,
-  }
 }
 
 const qrExplanation = `⚠️ Authentication Required
