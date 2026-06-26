@@ -82,7 +82,7 @@ async function withErrorHandling<R>(
 ): Promise<R> {
   try {
     const status = getStatus()
-    if (status.type === 'needAuth') throw new Error('AAAAA TOOLD Authentication required, please call the "get_auth_qr" tool to get a QR code for authentication')
+    if (status.type === 'needAuth') throw new Error('Authentication required, please call the "get_auth_qr" tool to get a QR code for authentication')
     if (status.type === 'connecting') throw new Error('Server still connecting, please wait')
     if (status.type === 'closed') throw new Error('Connection closed, please restart server')
     return await action()
