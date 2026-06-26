@@ -3,12 +3,9 @@ import { toCallError } from './common.js'
 import { WhatsAppStore } from '../store.js'
 import { WhatsAppHandler } from '../sync.js'
 import QRCode from 'qrcode'
-import { ZodRawShapeCompat } from '@modelcontextprotocol/sdk/server/zod-compat.js'
 
 export function registerAuthTools(server: McpServer, store: WhatsAppStore, sync: WhatsAppHandler) {
-  server.registerTool<ZodRawShapeCompat>(
-    'get_auth_qr',
-    { description: 'Get a QR code for WhatsApp authentication.' },
+  server.registerTool('get_auth_qr', { description: 'Get a QR code for WhatsApp authentication' },
     async () => {
       try {
         const status = sync.getStatus()
@@ -29,9 +26,7 @@ export function registerAuthTools(server: McpServer, store: WhatsAppStore, sync:
     },
   )
 
-  server.registerTool<ZodRawShapeCompat>(
-    'get_status',
-    { description: 'Get the current server status.' },
+  server.registerTool('get_status', { description: 'Get the current server status.' },
     () => {
       try {
         const status = sync.getStatus()

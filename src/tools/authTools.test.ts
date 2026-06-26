@@ -47,7 +47,7 @@ describe('get_auth_qr handler', () => {
 
     const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'get_auth_qr')
     expect(tool).toBeDefined()
-    expect((tool as unknown[])[1]).toMatchObject({ description: 'Get a QR code for WhatsApp authentication.' })
+    expect((tool as unknown[])[1]).toMatchObject({ description: 'Get a QR code for WhatsApp authentication' })
   })
 
   it('returns QR code result when status is needAuth', async () => {

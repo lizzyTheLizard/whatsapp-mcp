@@ -25,6 +25,7 @@ export interface WhatsAppStore {
   getContact: (id: string) => ContactWithId | undefined
   getMessages: () => MessageWithId[]
   getMessage: (id: string) => MessageWithId | undefined
+  getMessagesForChat: (id: string) => MessageWithId[]
   reset: () => void
   getAuth: () => AuthenticationState
 }
@@ -47,7 +48,6 @@ function toString<T>(map: Map<string, T>): string {
 }
 
 export function createStore(saveCb?: (data: DataStore) => Promise<void>, initialData?: DataStore): WhatsAppStore {
-  // TODO: Load initial states from somewhere
   const chats = fromString<ChatWithId>(initialData?.chats)
   const contacts = fromString<ContactWithId>(initialData?.contacts)
   const messages = fromString<MessageWithId>(initialData?.messages)
@@ -170,6 +170,7 @@ export function createStore(saveCb?: (data: DataStore) => Promise<void>, initial
     getContacts: () => Array.from(contacts.values()),
     getContact: id => contacts.get(id),
     getMessages: () => Array.from(messages.values()),
+    getMessagesForChat: id => Array.from(messages.values()).filter(m => m.key.remoteJid === id),
     getMessage: id => messages.get(id),
     reset: () => {
       chats.clear()
