@@ -7,7 +7,7 @@ const pkgPath = resolve(__dirname, '..', 'package.json')
 const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
 
 const manifest = {
-  manifest_version: '0.2',
+  manifest_version: '0.3',
   name: pkg.name,
   version: pkg.version,
   description: pkg.description,
@@ -17,8 +17,7 @@ const manifest = {
     entry_point: 'dist/main.js',
     mcp_config: {
       command: 'node',
-      args: ['./dist/main.js'],
-      env: {},
+      args: ['${__dirname}/dist/main.js'],
     },
   },
   license: pkg.license,
