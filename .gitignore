@@ -1,2 +1,5 @@
 node_modules
 dist
+data
+manifest.json
+whatsapp-mcp.mcpb
