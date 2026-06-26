@@ -7,7 +7,7 @@
     },
     "lint-formatter": {
       "command": ["npx", "eslint", "--fix", "$FILE"],
-      "extensions": [".js", ".ts", ".jsx", ".tsx"]
+      "extensions": [".js", ".mjs", ".ts", ".jsx", ".tsx"]
     }
   },
   "lsp": true,

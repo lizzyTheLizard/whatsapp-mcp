@@ -2,6 +2,7 @@
   "name": "@lizzythelizard/whatsapp-mcp",
   "version": "0.1.7",
   "description": "MCP server for WhatsApp integration",
+  "author": { "name": "Matthias Graf" },
   "type": "module",
   "main": "dist/index.js",
   "files": [
@@ -33,7 +34,10 @@
     "test:watch": "vitest",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "mcpb:manifest": "node scripts/create-mcpb-manifest.mjs",
+    "mcpb:pack": "npx mcpb pack",
+    "mcpb": "npm run mcpb:manifest && npm run mcpb:pack"
   },
   "keywords": [
     "mcp",
@@ -49,6 +53,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@anthropic-ai/mcpb": "^2.1.2",
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.0.1",
     "@types/qrcode": "^1.5.6",
