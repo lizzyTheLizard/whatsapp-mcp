@@ -82,7 +82,10 @@ async function main() {
   else {
     const transport = new StdioServerTransport()
     const closeCB = await startServer(transport)
-    process.on('exit', () => { void closeCB() })
+    process.on('exit', () => {
+      console.error('Close process exit event')
+      void closeCB()
+    })
   }
 }
 
