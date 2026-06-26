@@ -14,10 +14,10 @@ const manifest = {
   author: pkg.author,
   server: {
     type: 'node',
-    entry_point: 'dist/index.js',
+    entry_point: 'dist/main.js',
     mcp_config: {
       command: 'node',
-      args: ['${__dirname}/dist/index.js'],
+      args: ['./dist/main.js'],
       env: {},
     },
   },
