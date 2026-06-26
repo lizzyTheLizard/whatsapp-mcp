@@ -23,9 +23,9 @@ describe('createStore', () => {
 
   it('loads initial data from DataStore', () => {
     const store = createStore(undefined, {
-      chats: JSON.stringify([['c1', { id: 'c1', name: 'Chat' }]]),
-      contacts: JSON.stringify([['c1', { id: 'c1', name: 'Contact' }]]),
-      messages: JSON.stringify([['m1', { key: { id: 'm1', remoteJid: 'c1' }, message: { conversation: 'hi' } }]]),
+      chats: JSON.stringify({ c1: { id: 'c1', name: 'Chat' } }),
+      contacts: JSON.stringify({ c1: { id: 'c1', name: 'Contact' } }),
+      messages: JSON.stringify({ m1: { key: { id: 'm1', remoteJid: 'c1' }, message: { conversation: 'hi' } } }),
       auth: '',
     })
     expect(store.getChats()).toHaveLength(1)

@@ -35,11 +35,13 @@ export function registerEntityResources<T>(
 
   const resourceTemplate = new ResourceTemplate(
     `${pluralType}://app/{${singularType}Id}`, {
-      list: async () => withErrorHandling(
-        getStatus,
-        () => toListResource(getAll().map(e => ({ uri: toUri(e), name: toName(e) }))),
-        (error) => { throw error },
-      ),
+      list: () => {
+        const status = getStatus()
+        if (status.type === 'needAuth') return toListResource([])
+        if (status.type === 'connecting') throw new Error('Server still connecting, please wait')
+        if (status.type === 'closed') throw new Error('Connection closed, please restart server')
+        return toListResource(getAll().map(e => ({ uri: toUri(e), name: toName(e) })))
+      },
     })
 
   server.registerResource(
@@ -73,7 +75,7 @@ export function registerTool<I>(
   )
 }
 
-export async function withErrorHandling<R>(
+async function withErrorHandling<R>(
   getStatus: () => SyncStatus,
   action: () => R | Promise<R>,
   onError: (error: Error) => R | Promise<R>,

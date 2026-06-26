@@ -82,8 +82,10 @@ async function main() {
   else {
     const transport = new StdioServerTransport()
     const closeCB = await startServer(transport)
-    process.on('exit', () => { void closeCB() })
-    console.info('whatsapp-mcp server running on stdio')
+    process.on('exit', () => {
+      console.error('Close process exit event')
+      void closeCB()
+    })
   }
 }
 

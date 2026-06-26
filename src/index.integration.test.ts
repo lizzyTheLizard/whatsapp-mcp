@@ -52,8 +52,10 @@ describe('MCP Server Integration', () => {
   })
 
   describe('resources/list', () => {
-    it('resource listing is blocked when not authenticated', async () => {
-      await expect(client.listResources()).rejects.toThrow()
+    it('returns static resources when not authenticated', async () => {
+      const { resources } = await client.listResources()
+      const uris = resources.map((r: { uri: string }) => r.uri).sort()
+      expect(uris).toEqual(['chats://app', 'contacts://app', 'messages://app'])
     })
   })
 
