@@ -38,8 +38,8 @@ export interface DataStore {
 
 function fromString<T>(data: string | undefined): Map<string, T> {
   if (!data) return new Map<string, T>()
-  const parsed = JSON.parse(data) as [string, T][]
-  return new Map<string, T>(parsed)
+  const parsed = JSON.parse(data) as Record<string, T>
+  return new Map<string, T>(Object.entries(parsed))
 }
 
 function toString<T>(map: Map<string, T>): string {

@@ -1,0 +1,13 @@
+.github
+.opencode
+.vscode
+data/
+scripts/
+scr/
+AGENTS.md
+Dockerfile
+eslint.config.mjs
+package.json
+tsconfig.test.json
+vitest.config.ts
+whatsapp-mcp.mcpb
