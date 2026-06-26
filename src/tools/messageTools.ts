@@ -1,24 +1,32 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { type WhatsAppStore } from '../store.js'
+import { WhatsAppStore } from '../store.js'
 import { WhatsAppHandler } from '../sync.js'
 import z from 'zod'
-import { JidSchema, registerEntityResources, registerTool } from './common.js'
+import { JidSchema, toCallError, toStructuredOutput, toTextResult, withErrorHandling } from './common.js'
 
 export function registerMessageTools(server: McpServer, store: WhatsAppStore, sync: WhatsAppHandler) {
-  registerEntityResources(
-    server, 'messages', 'message',
-    () => store.getMessages(), id => store.getMessage(id),
-    m => `messages://app/${m.key.id}`, m => m.key.id,
-    () => sync.getStatus(),
+  server.registerTool('send_message', { description: 'Send a WhatsApp-Message to a given JID', inputSchema: SendMessageSchema },
+    async args => withErrorHandling(
+      () => sync.getStatus(),
+      async () => { await sync.sendMessage(args.jid, args.message); return toTextResult(`Message sent to ${args.jid}: "${args.message}"`) },
+      e => toCallError(e),
+    ),
   )
 
-  registerTool<z.infer<typeof SendMessageSchema>>(
-    server,
-    'send_message',
-    SendMessageSchema,
-    'Send a WhatsApp-Message to a given JID.',
-    async (args) => { await sync.sendMessage(args.jid, args.message); return `Message sent to ${args.jid}: "${args.message}"` },
-    () => sync.getStatus(),
+  server.registerTool('get_all_messages', { description: 'Get all WhatsApp messages' },
+    async () => withErrorHandling(
+      () => sync.getStatus(),
+      () => toStructuredOutput({ messages: store.getMessages() }),
+      e => toCallError(e),
+    ),
+  )
+
+  server.registerTool('get_all_messages_for_chat', { description: 'Get all WhatsApp messages for a specific chat', inputSchema: JidSchema },
+    async args => withErrorHandling(
+      () => sync.getStatus(),
+      () => toStructuredOutput({ messages: store.getMessages().filter(m => m.key.remoteJid === args) }),
+      e => toCallError(e),
+    ),
   )
 }
 

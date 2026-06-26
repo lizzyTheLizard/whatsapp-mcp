@@ -47,7 +47,6 @@ function toString<T>(map: Map<string, T>): string {
 }
 
 export function createStore(saveCb?: (data: DataStore) => Promise<void>, initialData?: DataStore): WhatsAppStore {
-  // TODO: Load initial states from somewhere
   const chats = fromString<ChatWithId>(initialData?.chats)
   const contacts = fromString<ContactWithId>(initialData?.contacts)
   const messages = fromString<MessageWithId>(initialData?.messages)

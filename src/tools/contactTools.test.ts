@@ -2,14 +2,13 @@ import { describe, it, expect, vi, Mock } from 'vitest'
 import { registerContactResources } from './contactTools.js'
 import type { WhatsAppStore } from '../store.js'
 import type { WhatsAppHandler, SyncStatus } from '../sync.js'
-import type { ReadResourceResult } from '@modelcontextprotocol/sdk/types.js'
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
-function createMockServer(): McpServer & { registerResource: Mock, registerTool: Mock } {
+function createMockServer(): McpServer & { registerTool: Mock } {
   return {
-    registerResource: vi.fn(),
     registerTool: vi.fn(),
-  } as McpServer & { registerResource: Mock, registerTool: Mock }
+  } as unknown as McpServer & { registerTool: Mock }
 }
 
 function createMockStore(): WhatsAppStore {
@@ -36,79 +35,51 @@ function createMockSync(status: SyncStatus = { type: 'ready' }): WhatsAppHandler
   }
 }
 
-describe('contacts resources', () => {
-  it('contacts resource handler returns store.getContacts()', async () => {
+describe('get_all_contacts tool', () => {
+  it('returns store.getContacts() as structured output', async () => {
     const server = createMockServer()
     const store = createMockStore()
     const sync = createMockSync()
     vi.mocked(store.getContacts).mockReturnValue([{ id: 'c1', name: 'Contact1' }])
 
     registerContactResources(server, store, sync)
-    const call = server.registerResource.mock.calls.find((c: string[]) => c[0] === 'contacts')
-    const handler = call?.[3] as () => Promise<ReadResourceResult>
+    const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'get_all_contacts')
+    const handler = tool?.[2] as () => Promise<CallToolResult>
 
-    const result: ReadResourceResult = await handler()
-    expect(result.contents).toHaveLength(1)
-    expect(result.contents[0].uri).toBe('contacts://app/c1')
+    const result = await handler()
+    expect(result.isError).toBe(false)
+    expect(result.structuredContent).toEqual({ contacts: [{ id: 'c1', name: 'Contact1' }] })
   })
 
-  it('single contact resource handler returns store.getContact(contactId)', async () => {
-    const server = createMockServer()
-    const store = createMockStore()
-    const sync = createMockSync()
-    vi.mocked(store.getContact).mockReturnValue({ id: 'c1', name: 'Found' })
-
-    registerContactResources(server, store, sync)
-    const call = server.registerResource.mock.calls.find((c: string[]) => c[0] === 'contact')
-    const handler = call?.[3] as (input: undefined, params: { contactId: string }) => Promise<ReadResourceResult>
-
-    const result: ReadResourceResult = await handler(undefined, { contactId: 'c1' })
-    expect(result.contents).toHaveLength(1)
-    expect(result.contents[0].uri).toBe('contacts://app/c1')
-  })
-
-  it('resource returns empty array when no data exists', async () => {
+  it('returns empty array when no contacts exist', async () => {
     const server = createMockServer()
     const store = createMockStore()
     const sync = createMockSync()
 
     registerContactResources(server, store, sync)
-    const call = server.registerResource.mock.calls.find((c: string[]) => c[0] === 'contacts')
-    const handler = call?.[3] as () => Promise<ReadResourceResult>
+    const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'get_all_contacts')
+    const handler = tool?.[2] as () => Promise<CallToolResult>
 
-    const result: ReadResourceResult = await handler()
-    expect(result.contents).toEqual([])
+    const result = await handler()
+    expect(result.isError).toBe(false)
+    expect(result.structuredContent).toEqual({ contacts: [] })
   })
 
   it.each([
-    ['connecting', { type: 'connecting' }] as const,
-    ['closed', { type: 'closed' }] as const,
-    ['needAuth', { type: 'needAuth', qr: 'test-qr-data' }] as const,
-  ])('throws when status is %s in contacts resource handler', async (_, status) => {
+    ['connecting', { type: 'connecting' } as const, 'Server still connecting, please wait'],
+    ['closed', { type: 'closed' } as const, 'Connection closed, please restart server'],
+    ['needAuth', { type: 'needAuth', qr: 'test-qr-data' } as const, 'Authentication required, please call the "get_auth_qr" tool to get a QR code for authentication'],
+  ])('returns error when status is %s', async (_, status, expectedMsg) => {
     const server = createMockServer()
     const store = createMockStore()
     const sync = createMockSync(status)
 
     registerContactResources(server, store, sync)
-    const call = server.registerResource.mock.calls.find((c: string[]) => c[0] === 'contacts')
-    const handler = call?.[3] as () => Promise<ReadResourceResult>
+    const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'get_all_contacts')
+    const handler = tool?.[2] as () => Promise<CallToolResult>
 
-    await expect(async () => handler()).rejects.toThrow()
-  })
-
-  it.each([
-    ['connecting', { type: 'connecting' }] as const,
-    ['closed', { type: 'closed' }] as const,
-    ['needAuth', { type: 'needAuth', qr: 'test-qr-data' }] as const,
-  ])('throws when status is %s in single contact resource handler', async (_, status) => {
-    const server = createMockServer()
-    const store = createMockStore()
-    const sync = createMockSync(status)
-
-    registerContactResources(server, store, sync)
-    const call = server.registerResource.mock.calls.find((c: string[]) => c[0] === 'contact')
-    const handler = call?.[3] as (input: undefined, params: { contactId: string }) => Promise<ReadResourceResult>
-
-    await expect(async () => handler(undefined, { contactId: 'c1' })).rejects.toThrow()
+    const result = await handler()
+    expect(result.isError).toBe(true)
+    expect(result.content[0]).toEqual({ text: `Error: ${expectedMsg}`, type: 'text' })
   })
 })

@@ -37,10 +37,20 @@ describe('MCP Server Integration', () => {
   })
 
   describe('tools/list', () => {
-    it('returns all 5 tools', async () => {
+    it('returns all 8 tools', async () => {
       const { tools } = await client.listTools()
       const names = tools.map((t: { name: string }) => t.name).sort()
-      expect(names).toEqual(['get_auth_qr', 'get_status', 'send_message', 'set_chat_archived', 'set_chat_read'])
+      expect(names).toEqual([
+        'get_all_chats',
+        'get_all_contacts',
+        'get_all_messages',
+        'get_all_messages_for_chat',
+        'get_auth_qr',
+        'get_status',
+        'send_message',
+        'set_chat_archived',
+        'set_chat_read',
+      ])
     })
 
     it('returns tools with inputSchema', async () => {
@@ -48,14 +58,6 @@ describe('MCP Server Integration', () => {
       for (const tool of tools) {
         expect(tool.inputSchema).toBeDefined()
       }
-    })
-  })
-
-  describe('resources/list', () => {
-    it('returns static resources when not authenticated', async () => {
-      const { resources } = await client.listResources()
-      const uris = resources.map((r: { uri: string }) => r.uri).sort()
-      expect(uris).toEqual(['chats://app', 'contacts://app', 'messages://app'])
     })
   })
 
