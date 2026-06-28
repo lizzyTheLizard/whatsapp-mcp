@@ -59,7 +59,7 @@ async function writeDataToFile(data: DataStore): Promise<void> {
   await fsp.writeFile(`${dataDir}/auth.json`, data.auth, 'utf-8')
 }
 
-async function main() {
+async function mcp() {
   const { values } = parseArgs({
     options: cliOptions,
     args: process.argv.slice(2),
@@ -91,7 +91,7 @@ async function main() {
 
 const isMain = resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1])
 if (isMain) {
-  main().catch((error: unknown) => {
+  mcp().catch((error: unknown) => {
     console.error('Server error:', error)
     process.exit(1)
   })

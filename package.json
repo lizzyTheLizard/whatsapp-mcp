@@ -26,17 +26,17 @@
     "access": "public"
   },
   "bin": {
-    "whatsapp-mcp": "dist/main.js"
+    "whatsapp-mcp": "dist/mcp.js"
   },
   "scripts": {
     "build": "tsc",
-    "start": "node dist/main.js",
-    "dev": "tsx watch src/main.ts",
+    "start": "node dist/mcp.js",
+    "dev": "tsx watch src/mcp.ts",
     "inspect": "npx @modelcontextprotocol/inspector npm run --silent start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
     "mcpb:manifest": "node scripts/create-mcpb-manifest.mjs",
     "mcpb:pack": "npx mcpb pack",
@@ -50,7 +50,6 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@stylistic/eslint-plugin": "^5.10.0",
     "@whiskeysockets/baileys": "^7.0.0-rc13",
     "qrcode": "^1.5.4",
     "zod": "^4.4.3"
@@ -59,6 +58,7 @@
     "@anthropic-ai/mcpb": "^2.1.2",
     "@eslint/js": "^10.0.1",
     "@modelcontextprotocol/inspector": "^0.22.0",
+    "@stylistic/eslint-plugin": "^5.10.0",
     "@types/node": "^26.0.1",
     "@types/qrcode": "^1.5.6",
     "@typescript-eslint/eslint-plugin": "^8.62.0",

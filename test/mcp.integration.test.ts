@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
-import { startServer } from './main.js'
+import { startServer } from '../src/mcp.js'
 
 function waitForNeedAuth(client: Client, timeoutMs = 15000): Promise<void> {
   return new Promise<void>((resolve, reject) => {

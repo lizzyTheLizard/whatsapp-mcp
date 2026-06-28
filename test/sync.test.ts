@@ -7,8 +7,8 @@ vi.mock('@whiskeysockets/baileys', async (importOriginal) => {
   return { ...actual, default: mockMakeWASocket, makeWASocket: mockMakeWASocket }
 })
 
-import { createHandler } from './sync.js'
-import { createStore } from './store.js'
+import { createHandler } from '../src/sync.js'
+import { createStore } from '../src/store.js'
 
 function createStoreMockEmitter() {
   return { process: vi.fn() }

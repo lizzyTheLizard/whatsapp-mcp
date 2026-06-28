@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createStore, Emitter } from './store.js'
-import { createExportableAuth, ExportableAuthState } from './auth.js'
+import { createStore, Emitter } from '../src/store.js'
+import { createExportableAuth, ExportableAuthState } from '../src/auth.js'
 import type { BaileysEventMap } from '@whiskeysockets/baileys'
 
 type EventHandler = (events: Partial<BaileysEventMap>) => void | Promise<void>

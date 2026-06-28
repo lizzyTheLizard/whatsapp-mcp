@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createExportableAuth } from './auth.js'
+import { createExportableAuth } from '../src/auth.js'
 
 describe('createExportableAuth', () => {
   it('returns fresh auth with initAuthCreds when called without argument', () => {

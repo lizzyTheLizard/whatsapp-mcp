@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, Mock } from 'vitest'
-import { registerChatTools } from './chatTools.js'
-import type { WhatsAppStore } from '../store.js'
-import type { WhatsAppHandler, SyncStatus } from '../sync.js'
+import { registerChatTools } from '../../src/tools/chatTools.js'
+import type { WhatsAppStore } from '../../src/store.js'
+import type { WhatsAppHandler, SyncStatus } from '../../src/sync.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
