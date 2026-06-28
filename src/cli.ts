@@ -44,9 +44,9 @@ async function waitForAuthentication(handler: WhatsAppHandler, timeoutMs = 12000
 }
 
 async function cli() {
-  console.log('Starting WhatsApp sync CLI...')
+  console.log('Starting WhatsApp sync CLI. This is a very simple CLI, only for testing purposes. For production, use the MCP server.')
   const inputData = await readDataFromFile()
-  const store = createStore(writeDataToFile, inputData)
+  const store = createStore(inputData, { writeData: async (data) => { await writeDataToFile(data) } })
   const sync = createHandler(store)
   let status = await waitForStartup(sync)
   if (status.type === 'needAuth') status = await waitForAuthentication(sync)
@@ -54,11 +54,12 @@ async function cli() {
     console.error(`WhatsApp sync failed to start, status: ${status.type}`)
     process.exit(1)
   }
-  console.log(`WhatsApp sync is ready`)
-  console.log('Show all contacts')
-  for (const c of store.getContacts()) {
-    console.log(`Contact: ${JSON.stringify(c)}`)
-  }
+
+  // Convert everything to see if there is an error
+  const messages = store.getMessages()
+  const chats = store.getChats()
+  const contacts = store.getContacts()
+  console.log(`WhatsApp sync started with ${messages.length.toString()} messages, ${chats.length.toString()} chats, and ${contacts.length.toString()} contacts`)
   // keep open until user presses Ctrl+C
   console.log('Press Ctrl+C to exit')
   await new Promise<void>(() => { /** empty */ })

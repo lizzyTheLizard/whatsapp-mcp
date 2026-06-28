@@ -17,6 +17,7 @@ import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import { readDataFromFile, writeDataToFile } from './dataDir.js'
+import { noLog } from './logger.js'
 const cliOptions: ParseArgsOptionsConfig = {
   host: { type: 'string', short: 'h', multiple: false },
   port: { type: 'string', short: 'p', multiple: false },
@@ -24,8 +25,8 @@ const cliOptions: ParseArgsOptionsConfig = {
 
 export async function startServer(transport: Transport): Promise<() => Promise<void>> {
   const inputData = await readDataFromFile()
-  const store = createStore(writeDataToFile, inputData)
-  const sync = createHandler(store)
+  const store = createStore(inputData, { writeData: async (data) => { await writeDataToFile(data) }, logger: noLog })
+  const sync = createHandler(store, { logger: noLog })
   const server = new McpServer({ name: pkg.name, version: pkg.version })
   registerContactResources(server, store, sync)
   registerChatTools(server, store, sync)

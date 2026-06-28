@@ -1,17 +1,7 @@
-import { AuthenticationState, BaileysEventMap, BufferJSON, Chat, Contact, WAMessage, WAMessageKey } from '@whiskeysockets/baileys'
+import { AuthenticationState, BaileysEventMap, BufferJSON, Chat as WAChat, Contact as WAContact, WAMessage, WAMessageKey } from '@whiskeysockets/baileys'
 import { createExportableAuth } from './auth.js'
-
-export interface ChatWithId extends Chat {
-  id: string
-}
-
-export interface ContactWithId extends Contact {
-  id: string
-}
-
-export interface MessageWithId extends WAMessage {
-  key: WAMessageKey & { id: string }
-}
+import { Chat, WAChatWithId, Contact, WAContactWithId, WAMessageWithId, toChatExt, toContactExt, Message, toMessageExt } from './extTypes.js'
+import { consoleLog, ILogger } from './logger.js'
 
 export interface Emitter {
   process: (processor: (e: Partial<BaileysEventMap>) => void) => void
@@ -19,13 +9,14 @@ export interface Emitter {
 
 export interface WhatsAppStore {
   bind: (ev: Emitter) => void
-  getChats: () => ChatWithId[]
-  getChat: (id: string) => ChatWithId | undefined
-  getContacts: () => ContactWithId[]
-  getContact: (id: string) => ContactWithId | undefined
-  getMessages: () => MessageWithId[]
-  getMessage: (id: string) => MessageWithId | undefined
-  getMessagesForChat: (id: string) => MessageWithId[]
+  getChats: () => Chat[]
+  getChat: (id: string) => Chat | undefined
+  getRawChat: (id: string) => WAChatWithId | undefined
+  getContacts: () => Contact[]
+  getContact: (id: string) => Contact | undefined
+  getMessages: () => Message[]
+  getMessage: (id: string) => Message | undefined
+  getMessagesForChat: (id: string) => Message[]
   reset: (resetAuth: boolean) => void
   getAuth: () => AuthenticationState
 }
@@ -37,32 +28,24 @@ export interface DataStore {
   auth: string
 }
 
-function fromString<T>(data: string | undefined): Map<string, T> {
-  if (!data) return new Map<string, T>()
-  const parsed = JSON.parse(data) as Record<string, T>
-  return new Map<string, T>(Object.entries(parsed))
+export interface CreateStoreOptions {
+  writeData?: (data: DataStore) => Promise<void>
+  logger?: ILogger
 }
 
-function toString<T>(map: Map<string, T>): string {
-  const record: Record<string, T> = {}
-  for (const [key, value] of map) {
-    record[key] = value
-  }
-  return JSON.stringify(record, BufferJSON.replacer)
-}
-
-export function createStore(saveCb?: (data: DataStore) => Promise<void>, initialData?: DataStore): WhatsAppStore {
-  const chats = fromString<ChatWithId>(initialData?.chats)
-  const contacts = fromString<ContactWithId>(initialData?.contacts)
-  const messages = fromString<MessageWithId>(initialData?.messages)
+export function createStore(initialData: DataStore | undefined, options?: CreateStoreOptions): WhatsAppStore {
+  const chats = fromString<WAChatWithId>(initialData?.chats)
+  const contacts = fromString<WAContactWithId>(initialData?.contacts)
+  const messages = fromString<WAMessageWithId>(initialData?.messages)
   let auth = createExportableAuth(initialData?.auth)
   let saveTimeout: NodeJS.Timeout | undefined = undefined
+  const logger = options?.logger ?? consoleLog
 
-  function mergeChats(newChats: Partial<Chat>[]) {
+  function mergeChats(newChats: Partial<WAChat>[]) {
     for (const c of newChats) {
       if (!c.id) continue
       const existing = chats.get(c.id) ?? {}
-      const merged = { ...existing, ...c } as ChatWithId
+      const merged = { ...existing, ...c } as WAChatWithId
       chats.set(c.id, merged)
     }
   }
@@ -73,11 +56,11 @@ export function createStore(saveCb?: (data: DataStore) => Promise<void>, initial
     }
   }
 
-  function mergeContacts(newContacts: Partial<Contact>[]) {
+  function mergeContacts(newContacts: Partial<WAContact>[]) {
     for (const c of newContacts) {
       if (!c.id) continue
       const existing = contacts.get(c.id) ?? {}
-      const merged = { ...existing, ...c } as ContactWithId
+      const merged = { ...existing, ...c } as WAContactWithId
       contacts.set(c.id, merged)
     }
   }
@@ -86,7 +69,7 @@ export function createStore(saveCb?: (data: DataStore) => Promise<void>, initial
     for (const m of newMessages) {
       if (!m.key?.id) continue
       const existing = messages.get(m.key.id) ?? {}
-      const merged = { ...existing, ...m } as MessageWithId
+      const merged = { ...existing, ...m } as WAMessageWithId
       messages.set(m.key.id, merged)
     }
   }
@@ -107,26 +90,36 @@ export function createStore(saveCb?: (data: DataStore) => Promise<void>, initial
   }
 
   function save() {
-    if (!saveCb) {
-      console.log('No save callback provided, skipping save of WhatsApp store data')
+    const writeData = options?.writeData
+    if (!writeData) {
+      logger.debug('No writeData callback provided, skipping save.')
       return
     }
-    console.log('Saving WhatsApp store data...')
+    logger.debug('Saving WhatsApp store data...')
     const data: DataStore = {
       chats: toString(chats),
       contacts: toString(contacts),
       messages: toString(messages),
       auth: auth.toAuthState(),
     }
-    void saveCb(data).catch((error: unknown) => {
-      console.error('Error saving WhatsApp store data:', error)
+    void writeData(data).catch((error: unknown) => {
+      logger.error('Error saving WhatsApp store data:', error instanceof Error ? error : new Error(String(error)))
     })
+  }
+
+  function reset(resetAuth: boolean) {
+    logger.debug(`Resetting WhatsApp store data ${resetAuth ? 'including auth' : ''}`)
+    chats.clear()
+    contacts.clear()
+    messages.clear()
+    if (resetAuth) auth = createExportableAuth(undefined)
   }
 
   function process(e: Partial<BaileysEventMap>) {
     // Store data if no new events come in for 1 second
     if (saveTimeout) clearTimeout(saveTimeout)
-    if (saveCb) saveTimeout = setTimeout(save, 1000)
+    saveTimeout = setTimeout(save, 1000)
+    logger.trace(`Processing WhatsApp store event: ${JSON.stringify(e)}`)
     for (const key of Object.keys(e) as (keyof BaileysEventMap)[]) {
       try {
         switch (key) {
@@ -162,30 +155,36 @@ export function createStore(saveCb?: (data: DataStore) => Promise<void>, initial
         }
       }
       catch (error) {
-        handleError(error)
+        logger.error(`Error processing WhatsApp store event for key ${key}:`, error instanceof Error ? error : new Error(String(error)))
       }
     }
   }
 
-  function handleError(error: unknown) {
-    console.error(`Error processing WhatsApp store event: ${error instanceof Error ? error.message : String(error)}`)
-  }
-
   return {
     bind: (ev) => { ev.process(process) },
-    getChats: () => Array.from(chats.values()),
-    getChat: id => chats.get(id),
-    getContacts: () => Array.from(contacts.values()),
-    getContact: id => contacts.get(id),
-    getMessages: () => Array.from(messages.values()),
-    getMessagesForChat: id => Array.from(messages.values()).filter(m => m.key.remoteJid === id),
-    getMessage: id => messages.get(id),
-    reset: (resetAuth: boolean) => {
-      chats.clear()
-      contacts.clear()
-      messages.clear()
-      if (resetAuth) { auth = createExportableAuth(undefined) }
-    },
+    getChats: () => Array.from(chats.values()).map(chat => toChatExt(chat, contacts, logger)).filter(c => !!c),
+    getChat: id => toChatExt(chats.get(id), contacts, logger),
+    getRawChat: id => chats.get(id),
+    getContacts: () => Array.from(contacts.values()).map(contact => toContactExt(contact, logger)).filter(c => !!c),
+    getContact: id => toContactExt(contacts.get(id), logger),
+    getMessages: () => Array.from(messages.values()).map(m => toMessageExt(m, contacts, logger)).filter(m => !!m),
+    getMessagesForChat: id => Array.from(messages.values()).filter(m => m.key.remoteJid === id).map(m => toMessageExt(m, contacts, logger)).filter(m => !!m),
+    getMessage: id => toMessageExt(messages.get(id), contacts, logger),
+    reset: (resetAuth: boolean) => { reset(resetAuth) },
     getAuth: () => auth,
   }
+}
+
+function fromString<T>(data: string | undefined): Map<string, T> {
+  if (!data) return new Map<string, T>()
+  const parsed = JSON.parse(data) as Record<string, T>
+  return new Map<string, T>(Object.entries(parsed))
+}
+
+function toString<T>(map: Map<string, T>): string {
+  const record: Record<string, T> = {}
+  for (const [key, value] of map) {
+    record[key] = value
+  }
+  return JSON.stringify(record, BufferJSON.replacer, 2)
 }

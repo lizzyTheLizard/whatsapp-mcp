@@ -1,5 +1,6 @@
 import makeWASocket, { WABrowserDescription, ConnectionState, WAMessage, proto } from '@whiskeysockets/baileys'
 import { WhatsAppStore } from './store.js'
+import { consoleLog, ILogger } from './logger.js'
 
 export type SyncStatus = { type: 'connecting' } | { type: 'needAuth', qr: string } | { type: 'ready' } | { type: 'closed', error?: Error }
 
@@ -11,18 +12,26 @@ export interface WhatsAppHandler {
   setArchived: (jid: string, archived: boolean) => Promise<void>
 }
 
-export function createHandler(store: WhatsAppStore, name = 'Whatsapp MCP'): WhatsAppHandler {
+export interface WhatsAppHandlerOptions {
+  name?: string
+  logger?: ILogger
+}
+
+export function createHandler(store: WhatsAppStore, options?: WhatsAppHandlerOptions): WhatsAppHandler {
+  const name = options?.name ?? 'Whatsapp MCP'
+  const logger = options?.logger ?? consoleLog
   let state: SyncStatus = { type: 'connecting' }
   let sock: ReturnType<typeof makeWASocket> | undefined
   const browser = [name, 'Desktop', '1.0.0'] as WABrowserDescription
 
   function onError(error: unknown): void {
     const arg = error instanceof Error ? error : new Error(String(error))
-    console.error(`Closing WhatsApp sync due to error ${arg}`)
+    logger.error(`Closing WhatsApp sync due to error ${arg}`)
     close(arg)
   }
 
   function close(error?: Error): void {
+    if (!error) logger.debug(`Closing WhatsApp sync from caller`)
     if (sock) {
       const sockCpy = sock
       sock = undefined
@@ -33,18 +42,18 @@ export function createHandler(store: WhatsAppStore, name = 'Whatsapp MCP'): What
 
   function onClosed(error?: Error): void {
     if (!error) {
-      console.log(`WhatsApp sync connection closed without error`)
+      logger.debug(`WhatsApp sync connection closed without error`)
       state = { type: 'closed' }
       return
     }
     if (isInvalidAuthError(error)) {
-      console.warn(`WhatsApp sync requires re-authentication due to invalid auth state`)
+      logger.warn(`WhatsApp sync requires re-authentication due to invalid auth state`)
       store.reset(true)
       start()
       return
     }
     if (isRequiredReconnectError(error)) {
-      console.log(`WhatsApp sync connection closed due to required reconnect`)
+      logger.debug(`WhatsApp sync connection closed due to required reconnect after successful login, restarting connection`)
       store.reset(false)
       startAgainAfterLogin()
       return
@@ -61,6 +70,7 @@ export function createHandler(store: WhatsAppStore, name = 'Whatsapp MCP'): What
     },
     )
     store.bind(sock.ev)
+    logger.debug(`Started WhatsApp sync}`)
   }
 
   function startAgainAfterLogin() {
@@ -73,6 +83,7 @@ export function createHandler(store: WhatsAppStore, name = 'Whatsapp MCP'): What
       timeout = setTimeout(() => state = { type: 'ready' }, 2000)
     })
     store.bind(sock.ev)
+    logger.debug(`Restarted WhatsApp after login}`)
   }
 
   async function sendMessage(jid: string, message: string): Promise<WAMessage> {
@@ -80,8 +91,10 @@ export function createHandler(store: WhatsAppStore, name = 'Whatsapp MCP'): What
     if (state.type === 'closed') throw new Error('Connection closed, please restart server')
     if (state.type === 'needAuth') throw new Error('Authentication needed, please authenticate yourself first')
     if (sock === undefined) throw new Error(`No Socket defined but state is ${state.type}. This is invalid, please restart server`)
+    logger.debug(`Sending message to ${jid}: ${message}`)
     const result = await sock.sendMessage(jid, { text: message })
     if (!result) throw new Error(`Failed to send message to ${jid}`)
+    logger.info(`Sent message to ${jid}: ${message}`)
     return result
   }
 
@@ -90,15 +103,19 @@ export function createHandler(store: WhatsAppStore, name = 'Whatsapp MCP'): What
     if (state.type === 'closed') throw new Error('Connection closed, please restart server')
     if (state.type === 'needAuth') throw new Error('Authentication needed, please authenticate yourself first')
     if (sock === undefined) throw new Error(`No Socket defined but state is ${state.type}. This is invalid, please restart server`)
-    const chat = store.getChat(jid)
+    const chat = store.getRawChat(jid)
     if (!chat) throw new Error(`No chat found for ${jid}`)
     const lastMessage = chat.messages?.[0].message
     if (!lastMessage) {
+      logger.debug(`Archiving chat ${jid} with no last message`)
       await sock.chatModify({ archive: archived, lastMessages: [] }, jid)
+      logger.info(`Archived chat ${jid} with no last message`)
       return
     }
     if (!lastMessage.key) throw new Error(`Last message for ${jid} has no key, cannot archive chat`)
+    logger.debug(`Archiving chat ${jid}}`)
     await sock.chatModify({ archive: archived, lastMessages: [lastMessage as proto.IWebMessageInfo & { key: typeof lastMessage.key }] }, jid)
+    logger.info(`Archived chat ${jid}}`)
   }
 
   async function setRead(jid: string, read: boolean): Promise<void> {
@@ -106,15 +123,19 @@ export function createHandler(store: WhatsAppStore, name = 'Whatsapp MCP'): What
     if (state.type === 'closed') throw new Error('Connection closed, please restart server')
     if (state.type === 'needAuth') throw new Error('Authentication needed, please authenticate yourself first')
     if (sock === undefined) throw new Error(`No Socket defined but state is ${state.type}. This is invalid, please restart server`)
-    const chat = store.getChat(jid)
+    const chat = store.getRawChat(jid)
     if (!chat) throw new Error(`No chat found for ${jid}`)
     const lastMessage = chat.messages?.[0].message
     if (!lastMessage) {
+      logger.debug(`Marking chat ${jid} as ${read ? 'read' : 'unread'} with no last message`)
       await sock.chatModify({ markRead: read, lastMessages: [] }, jid)
+      logger.info(`Marked chat ${jid} as ${read ? 'read' : 'unread'} with no last message`)
       return
     }
     if (!lastMessage.key) throw new Error(`Last message for ${jid} has no key, cannot mark chat as unread`)
+    logger.debug(`Marking chat ${jid} as ${read ? 'read' : 'unread'}`)
     await sock.chatModify({ markRead: read, lastMessages: [lastMessage as proto.IWebMessageInfo & { key: typeof lastMessage.key }] }, jid)
+    logger.info(`Marked chat ${jid} as ${read ? 'read' : 'unread'}`)
   }
   start()
 
