@@ -318,7 +318,7 @@ describe('reset', () => {
         messages: [{ key: { id: 'm1' } }],
       },
     })
-    store.reset()
+    store.reset(true)
     expect(store.getChats()).toHaveLength(0)
     expect(store.getContacts()).toHaveLength(0)
     expect(store.getMessages()).toHaveLength(0)
@@ -326,7 +326,7 @@ describe('reset', () => {
 
   it('resets auth to fresh state', () => {
     const store = createStore()
-    store.reset()
+    store.reset(true)
     expect(store.getAuth().creds).toBeDefined()
   })
 
@@ -335,7 +335,7 @@ describe('reset', () => {
     const ev = createMockEmitter()
     store.bind(ev)
     ev.emit({ 'chats.upsert': [{ id: 'c1' }] })
-    store.reset()
+    store.reset(true)
     ev.emit({ 'chats.upsert': [{ id: 'c2' }] })
     expect(store.getChats()).toHaveLength(1)
     expect(store.getChat('c2')).toBeDefined()

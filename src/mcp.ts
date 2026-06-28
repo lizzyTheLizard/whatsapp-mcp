@@ -4,9 +4,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import pkg from '../package.json' with { type: 'json' }
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { createStore, DataStore } from './store.js'
+import { createStore } from './store.js'
 import { createHandler } from './sync.js'
-import { promises as fsp } from 'fs'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { parseArgs, ParseArgsOptionsConfig } from 'node:util'
@@ -17,9 +16,7 @@ import { registerAuthTools } from './tools/authTools.js'
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
-
-const dataDir = process.env.DATA_DIR ?? './data'
-
+import { readDataFromFile, writeDataToFile } from './dataDir.js'
 const cliOptions: ParseArgsOptionsConfig = {
   host: { type: 'string', short: 'h', multiple: false },
   port: { type: 'string', short: 'p', multiple: false },
@@ -39,24 +36,6 @@ export async function startServer(transport: Transport): Promise<() => Promise<v
     sync.close()
     await server.close()
   }
-}
-
-async function readDataFromFile(): Promise<DataStore | undefined> {
-  const canAccess = await fsp.access(dataDir).then(() => true).catch(() => false)
-  if (!canAccess) return undefined
-  const chats = await fsp.readFile(`${dataDir}/chats.json`, 'utf-8')
-  const messages = await fsp.readFile(`${dataDir}/messages.json`, 'utf-8')
-  const contacts = await fsp.readFile(`${dataDir}/contacts.json`, 'utf-8')
-  const auth = await fsp.readFile(`${dataDir}/auth.json`, 'utf-8')
-  return { chats, messages, contacts, auth }
-}
-
-async function writeDataToFile(data: DataStore): Promise<void> {
-  await fsp.mkdir(dataDir, { recursive: true })
-  await fsp.writeFile(`${dataDir}/chats.json`, data.chats, 'utf-8')
-  await fsp.writeFile(`${dataDir}/messages.json`, data.messages, 'utf-8')
-  await fsp.writeFile(`${dataDir}/contacts.json`, data.contacts, 'utf-8')
-  await fsp.writeFile(`${dataDir}/auth.json`, data.auth, 'utf-8')
 }
 
 async function mcp() {

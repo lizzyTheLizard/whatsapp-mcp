@@ -26,7 +26,7 @@ export interface WhatsAppStore {
   getMessages: () => MessageWithId[]
   getMessage: (id: string) => MessageWithId | undefined
   getMessagesForChat: (id: string) => MessageWithId[]
-  reset: () => void
+  reset: (resetAuth: boolean) => void
   getAuth: () => AuthenticationState
 }
 
@@ -44,7 +44,11 @@ function fromString<T>(data: string | undefined): Map<string, T> {
 }
 
 function toString<T>(map: Map<string, T>): string {
-  return JSON.stringify(map, BufferJSON.replacer)
+  const record: Record<string, T> = {}
+  for (const [key, value] of map) {
+    record[key] = value
+  }
+  return JSON.stringify(record, BufferJSON.replacer)
 }
 
 export function createStore(saveCb?: (data: DataStore) => Promise<void>, initialData?: DataStore): WhatsAppStore {
@@ -103,7 +107,11 @@ export function createStore(saveCb?: (data: DataStore) => Promise<void>, initial
   }
 
   function save() {
-    if (!saveCb) return
+    if (!saveCb) {
+      console.log('No save callback provided, skipping save of WhatsApp store data')
+      return
+    }
+    console.log('Saving WhatsApp store data...')
     const data: DataStore = {
       chats: toString(chats),
       contacts: toString(contacts),
@@ -172,11 +180,11 @@ export function createStore(saveCb?: (data: DataStore) => Promise<void>, initial
     getMessages: () => Array.from(messages.values()),
     getMessagesForChat: id => Array.from(messages.values()).filter(m => m.key.remoteJid === id),
     getMessage: id => messages.get(id),
-    reset: () => {
+    reset: (resetAuth: boolean) => {
       chats.clear()
       contacts.clear()
       messages.clear()
-      auth = createExportableAuth(undefined)
+      if (resetAuth) { auth = createExportableAuth(undefined) }
     },
     getAuth: () => auth,
   }

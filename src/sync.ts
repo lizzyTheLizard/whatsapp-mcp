@@ -1,5 +1,5 @@
 import makeWASocket, { WABrowserDescription, ConnectionState, WAMessage, proto } from '@whiskeysockets/baileys'
-import { createStore } from './store.js'
+import { WhatsAppStore } from './store.js'
 
 export type SyncStatus = { type: 'connecting' } | { type: 'needAuth', qr: string } | { type: 'ready' } | { type: 'closed', error?: Error }
 
@@ -11,10 +11,10 @@ export interface WhatsAppHandler {
   setArchived: (jid: string, archived: boolean) => Promise<void>
 }
 
-export function createHandler(store: ReturnType<typeof createStore>): WhatsAppHandler {
+export function createHandler(store: WhatsAppStore, name = 'Whatsapp MCP'): WhatsAppHandler {
   let state: SyncStatus = { type: 'connecting' }
   let sock: ReturnType<typeof makeWASocket> | undefined
-  const browser = ['Gutschi.site', 'Desktop', '1.0.0'] as WABrowserDescription
+  const browser = [name, 'Desktop', '1.0.0'] as WABrowserDescription
 
   function onError(error: unknown): void {
     const arg = error instanceof Error ? error : new Error(String(error))
@@ -39,13 +39,13 @@ export function createHandler(store: ReturnType<typeof createStore>): WhatsAppHa
     }
     if (isInvalidAuthError(error)) {
       console.warn(`WhatsApp sync requires re-authentication due to invalid auth state`)
-      store.reset()
+      store.reset(true)
       start()
       return
     }
     if (isRequiredReconnectError(error)) {
       console.log(`WhatsApp sync connection closed due to required reconnect`)
-      store.reset()
+      store.reset(false)
       startAgainAfterLogin()
       return
     }

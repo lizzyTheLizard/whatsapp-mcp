@@ -32,6 +32,7 @@
     "build": "tsc",
     "start": "node dist/mcp.js",
     "dev": "tsx watch src/mcp.ts",
+    "cli": "tsx src/cli.ts",
     "inspect": "npx @modelcontextprotocol/inspector npm run --silent start",
     "test": "vitest run",
     "test:watch": "vitest",

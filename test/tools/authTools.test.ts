@@ -22,6 +22,7 @@ function createMockStore(): WhatsAppStore {
     getContact: vi.fn().mockReturnValue(undefined),
     getMessages: vi.fn().mockReturnValue([]),
     getMessage: vi.fn().mockReturnValue(undefined),
+    getMessagesForChat: vi.fn().mockReturnValue([]),
     reset: vi.fn(),
     getAuth: vi.fn(),
   }
