@@ -33,15 +33,13 @@
     "start": "node dist/mcp.js",
     "dev": "tsx watch src/mcp.ts",
     "cli": "tsx src/cli.ts",
-    "inspect": "npx @modelcontextprotocol/inspector npm run --silent start",
+    "inspect": "npx @modelcontextprotocol/inspector node dist/mcp.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
-    "mcpb:manifest": "node scripts/create-mcpb-manifest.mjs",
-    "mcpb:pack": "npx mcpb pack",
-    "mcpb": "npm run mcpb:manifest && npm run mcpb:pack"
+    "mcpb": "node scripts/create-mcpb.mjs"
   },
   "keywords": [
     "mcp",
@@ -56,9 +54,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@anthropic-ai/mcpb": "^2.1.2",
     "@eslint/js": "^10.0.1",
-    "@modelcontextprotocol/inspector": "^0.22.0",
     "@stylistic/eslint-plugin": "^5.10.0",
     "@types/node": "^26.0.1",
     "@types/qrcode": "^1.5.6",
