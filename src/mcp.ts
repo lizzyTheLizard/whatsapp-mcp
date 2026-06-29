@@ -27,6 +27,7 @@ export async function startServer(transport: Transport): Promise<() => Promise<v
   const inputData = await readDataFromFile()
   const store = createStore(inputData, { writeData: async (data) => { await writeDataToFile(data) }, logger: noLog })
   const sync = createHandler(store, { logger: noLog })
+  await sync.start()
   const server = new McpServer({ name: pkg.name, version: pkg.version })
   registerContactResources(server, store, sync)
   registerChatTools(server, store, sync)

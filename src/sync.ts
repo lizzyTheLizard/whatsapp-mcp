@@ -6,6 +6,7 @@ export type SyncStatus = { type: 'connecting' } | { type: 'needAuth', qr: string
 
 export interface WhatsAppHandler {
   close: () => void
+  start: () => Promise<void>
   getStatus: () => SyncStatus
   sendMessage: (jid: string, text: string) => Promise<WAMessage>
   setRead: (jid: string, read: boolean) => Promise<void>
@@ -49,7 +50,7 @@ export function createHandler(store: WhatsAppStore, options?: WhatsAppHandlerOpt
     if (isInvalidAuthError(error)) {
       logger.warn(`WhatsApp sync requires re-authentication due to invalid auth state`)
       store.reset(true)
-      start()
+      start().catch((err: unknown) => { close(err instanceof Error ? err : new Error(String(err))) })
       return
     }
     if (isRequiredReconnectError(error)) {
@@ -58,19 +59,34 @@ export function createHandler(store: WhatsAppStore, options?: WhatsAppHandlerOpt
       startAgainAfterLogin()
       return
     }
+    logger.error(`WhatsApp sync connection closed due to error ${error}`)
     state = { type: 'closed', error }
   }
 
-  function start() {
+  function start(): Promise<void> {
     sock = makeWASocket({ auth: store.getAuth(), browser, logger: baileysLogger, markOnlineOnConnect: false, syncFullHistory: true, emitOwnEvents: true })
     sock.ev.on('connection.update', (update) => {
       connectionUpdate(update, onClosed,
         qr => state = { type: 'needAuth', qr },
         () => state = { type: 'ready' })
-    },
-    )
+    })
     store.bind(sock.ev)
     logger.debug(`Started WhatsApp sync}`)
+
+    // wait for timeout or non 'connecting' state
+    return new Promise<void>((resolve, reject) => {
+      // Ceheck evey 1s if status is still connecting, if not resolve, if timeout reject
+      const start = Date.now()
+      const timeoutMs = 120000
+      const poll = () => {
+        const status = state
+        if (status.type !== 'connecting') resolve()
+        else if (Date.now() - start < timeoutMs) setTimeout(poll, 100)
+        else reject(new Error(`Timed out waiting for ready, got ${status.type}`))
+        setTimeout(poll, 1000)
+      }
+      poll()
+    })
   }
 
   function startAgainAfterLogin() {
@@ -137,7 +153,6 @@ export function createHandler(store: WhatsAppStore, options?: WhatsAppHandlerOpt
     await sock.chatModify({ markRead: read, lastMessages: [lastMessage as proto.IWebMessageInfo & { key: typeof lastMessage.key }] }, jid)
     logger.info(`Marked chat ${jid} as ${read ? 'read' : 'unread'}`)
   }
-  start()
 
   return {
     getStatus: () => state,
@@ -145,6 +160,7 @@ export function createHandler(store: WhatsAppStore, options?: WhatsAppHandlerOpt
     setArchived: setArchived,
     setRead: setRead,
     close: close,
+    start: start,
   }
 }
 

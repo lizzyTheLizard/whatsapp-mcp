@@ -2,26 +2,28 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { toCallError } from './common.js'
 import { WhatsAppStore } from '../store.js'
 import { WhatsAppHandler } from '../sync.js'
-import QRCode from 'qrcode'
+import z from 'zod'
 
 export function registerAuthTools(server: McpServer, store: WhatsAppStore, sync: WhatsAppHandler) {
-  server.registerTool('get_auth_qr', { description: 'Get a QR code to authenticate with WhatsApp. Call this tool when authentication is required.' },
+  server.registerTool('get_auth_qr', { description: 'Get a QR code to authenticate with WhatsApp. Call this tool when authentication is required.', outputSchema: QrCodeResultSchema },
     async () => {
       try {
-        const status = sync.getStatus()
+        let status = sync.getStatus()
+        if (status.type === 'closed') await sync.start()
+        status = sync.getStatus()
+        if (status.type === 'closed') throw new Error('WhatsApp sync is closed. Please restart the server.')
         if (status.type !== 'needAuth') throw new Error('Authentication is not required at this time.')
-        const pngBuffer = await QRCode.toBuffer(status.qr, { type: 'png', width: 400, margin: 2 })
         return {
-          content: [
-            { type: 'text', text: qrExplanation },
-            { type: 'image', data: pngBuffer.toString('base64'), mimeType: 'image/png' },
-            { type: 'text', text: status.qr },
-          ],
+          structuredContent: {
+            url: `https://public-api.qr-code-generator.com/v1/create/extended?image_format=PNG&image_width=300&qr_code_text=${encodeURIComponent(status.qr)}&foreground_color=%23000000&background_color=%23FFFFFF&frame_name=no-frame`,
+            code: status.qr,
+          },
+          content: [],
           isError: false,
         }
       }
       catch (e) {
-        return toCallError(e as Error)
+        return toCallError(e instanceof Error ? e.message : String(e))
       }
     },
   )
@@ -44,20 +46,13 @@ export function registerAuthTools(server: McpServer, store: WhatsAppStore, sync:
         }
       }
       catch (e) {
-        return toCallError(e as Error)
+        return toCallError(e instanceof Error ? e.message : String(e))
       }
     },
   )
 }
 
-const qrExplanation = `⚠️ Authentication Required
-
-To use this WhatsApp MCP server, you need to link it to your WhatsApp account.
-
-1. Open WhatsApp on your phone
-2. Tap the three dots menu (⋮) or Settings
-3. Select "Linked Devices"
-4. Tap "Link a Device"
-5. Scan the QR code below with your phone
-
-The raw QR code string is also provided below for clients that render QR codes themselves.`
+const QrCodeResultSchema = z.object({
+  url: z.string().describe('URL to a PNG image of the QR code. Download and show this image to the user to scan with their WhatsApp mobile app.'),
+  code: z.string().describe('Text representation of the QR code. If you cannot show the user the QR code image or url, you can generate a QR code from this text using any QR code generator.'),
+})

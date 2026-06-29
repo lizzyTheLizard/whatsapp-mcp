@@ -48,6 +48,7 @@ async function cli() {
   const inputData = await readDataFromFile()
   const store = createStore(inputData, { writeData: async (data) => { await writeDataToFile(data) } })
   const sync = createHandler(store)
+  await sync.start()
   let status = await waitForStartup(sync)
   if (status.type === 'needAuth') status = await waitForAuthentication(sync)
   if (status.type !== 'ready') {
