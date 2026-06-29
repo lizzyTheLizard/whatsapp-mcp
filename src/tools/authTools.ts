@@ -5,7 +5,7 @@ import { WhatsAppHandler } from '../sync.js'
 import QRCode from 'qrcode'
 
 export function registerAuthTools(server: McpServer, store: WhatsAppStore, sync: WhatsAppHandler) {
-  server.registerTool('get_auth_qr', { description: 'Get a QR code for WhatsApp authentication' },
+  server.registerTool('get_auth_qr', { description: 'Get a QR code to authenticate with WhatsApp. Call this tool when authentication is required.' },
     async () => {
       try {
         const status = sync.getStatus()
@@ -30,7 +30,18 @@ export function registerAuthTools(server: McpServer, store: WhatsAppStore, sync:
     () => {
       try {
         const status = sync.getStatus()
-        return { content: [{ type: 'text', text: status.type }], isError: false }
+        switch (status.type) {
+          case 'needAuth':
+            return { content: [{ type: 'text', text: 'Authentication is required. Please call get_auth_qr to retrieve a QR code for authentication.' }], isError: false }
+          case 'connecting':
+            return { content: [{ type: 'text', text: 'Server is still connecting to WhatsApp, please wait...' }], isError: false }
+          case 'closed':
+            return { content: [{ type: 'text', text: `Server connection closed. Error: ${status.error?.message ?? 'Unknown error'}` }], isError: false }
+          case 'ready':
+            return { content: [{ type: 'text', text: 'Server is ready and authenticated.' }], isError: false }
+          default:
+            return { content: [{ type: 'text', text: 'Unknown server status.' }], isError: false }
+        }
       }
       catch (e) {
         return toCallError(e as Error)

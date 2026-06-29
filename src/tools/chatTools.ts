@@ -5,6 +5,7 @@ import z from 'zod'
 import { JidSchema, toCallError, toStructuredOutput, toTextResult, withErrorHandling } from './common.js'
 
 export function registerChatTools(server: McpServer, store: WhatsAppStore, sync: WhatsAppHandler) {
+  // TODO OutputSchema and better description for this tool
   server.registerTool('get_all_chats', { description: 'Get all WhatsApp chats' },
     async () => withErrorHandling(
       () => sync.getStatus(),

@@ -13,6 +13,7 @@ export function registerMessageTools(server: McpServer, store: WhatsAppStore, sy
     ),
   )
 
+  // TODO OutputSchema and better description for this tool
   server.registerTool('get_all_messages', { description: 'Get all WhatsApp messages' },
     async () => withErrorHandling(
       () => sync.getStatus(),
@@ -21,10 +22,11 @@ export function registerMessageTools(server: McpServer, store: WhatsAppStore, sy
     ),
   )
 
+  // TODO OutputSchema and better description for this tool
   server.registerTool('get_all_messages_for_chat', { description: 'Get all WhatsApp messages for a specific chat', inputSchema: JidSchema },
     async args => withErrorHandling(
       () => sync.getStatus(),
-      () => toStructuredOutput({ messages: store.getMessages().filter(m => m.key.remoteJid === args) }),
+      () => toStructuredOutput({ messages: store.getMessagesForChat(args) }),
       e => toCallError(e),
     ),
   )
