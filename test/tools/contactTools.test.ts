@@ -16,6 +16,7 @@ function createMockStore(): WhatsAppStore {
     bind: vi.fn(),
     getChats: vi.fn().mockReturnValue([]),
     getChat: vi.fn().mockReturnValue(undefined),
+    getRawChat: vi.fn().mockReturnValue(undefined),
     getContacts: vi.fn().mockReturnValue([]),
     getContact: vi.fn().mockReturnValue(undefined),
     getMessages: vi.fn().mockReturnValue([]),
@@ -33,15 +34,18 @@ function createMockSync(status: SyncStatus = { type: 'ready' }): WhatsAppHandler
     sendMessage: vi.fn(),
     setArchived: vi.fn(),
     setRead: vi.fn(),
+    start: vi.fn().mockResolvedValue(undefined),
   }
 }
+
+const validContact = { id: 'c1', name: 'Contact1', phone: '+41 79 123 45 67' }
 
 describe('get_all_contacts tool', () => {
   it('returns store.getContacts() as structured output', async () => {
     const server = createMockServer()
     const store = createMockStore()
     const sync = createMockSync()
-    vi.mocked(store.getContacts).mockReturnValue([{ id: 'c1', name: 'Contact1' }])
+    vi.mocked(store.getContacts).mockReturnValue([validContact])
 
     registerContactResources(server, store, sync)
     const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'get_all_contacts')
@@ -49,7 +53,7 @@ describe('get_all_contacts tool', () => {
 
     const result = await handler()
     expect(result.isError).toBe(false)
-    expect(result.structuredContent).toEqual({ contacts: [{ id: 'c1', name: 'Contact1' }] })
+    expect(result.structuredContent).toEqual({ contacts: [validContact] })
   })
 
   it('returns empty array when no contacts exist', async () => {

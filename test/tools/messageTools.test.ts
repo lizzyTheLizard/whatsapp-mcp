@@ -16,6 +16,7 @@ function createMockStore(): WhatsAppStore {
     bind: vi.fn(),
     getChats: vi.fn().mockReturnValue([]),
     getChat: vi.fn().mockReturnValue(undefined),
+    getRawChat: vi.fn().mockReturnValue(undefined),
     getContacts: vi.fn().mockReturnValue([]),
     getContact: vi.fn().mockReturnValue(undefined),
     getMessages: vi.fn().mockReturnValue([]),
@@ -33,8 +34,16 @@ function createMockSync(status: SyncStatus = { type: 'ready' }): WhatsAppHandler
     sendMessage: vi.fn(),
     setArchived: vi.fn(),
     setRead: vi.fn(),
+    start: vi.fn().mockResolvedValue(undefined),
   }
 }
+
+const validMsg = (id: string, remoteJid: string, text: string) => ({
+  id,
+  from: { id: remoteJid, name: 'User' },
+  message: text,
+  messageTimestamp: 1000,
+})
 
 describe('send_message handler', () => {
   it('calls sync.sendMessage with jid and message', async () => {
@@ -96,7 +105,7 @@ describe('get_all_messages tool', () => {
     const server = createMockServer()
     const store = createMockStore()
     const sync = createMockSync()
-    vi.mocked(store.getMessages).mockReturnValue([{ key: { id: 'm1' }, message: { conversation: 'hi' } }])
+    vi.mocked(store.getMessages).mockReturnValue([validMsg('m1', 'user1@s.whatsapp.net', 'hi')])
 
     registerMessageTools(server, store, sync)
     const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'get_all_messages')
@@ -104,7 +113,7 @@ describe('get_all_messages tool', () => {
 
     const result = await handler()
     expect(result.isError).toBe(false)
-    expect(result.structuredContent).toEqual({ messages: [{ key: { id: 'm1' }, message: { conversation: 'hi' } }] })
+    expect(result.structuredContent).toEqual({ messages: [validMsg('m1', 'user1@s.whatsapp.net', 'hi')] })
   })
 
   it('returns empty array when no messages exist', async () => {
@@ -145,10 +154,7 @@ describe('get_all_messages_for_chat tool', () => {
     const server = createMockServer()
     const store = createMockStore()
     const sync = createMockSync()
-    vi.mocked(store.getMessages).mockReturnValue([
-      { key: { id: 'm1', remoteJid: 'chat1@s.whatsapp.net' }, message: { conversation: 'a' } },
-      { key: { id: 'm2', remoteJid: 'chat2@s.whatsapp.net' }, message: { conversation: 'b' } },
-    ])
+    vi.mocked(store.getMessagesForChat).mockReturnValue([validMsg('m1', 'chat1@s.whatsapp.net', 'a')])
 
     registerMessageTools(server, store, sync)
     const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'get_all_messages_for_chat')
@@ -157,7 +163,7 @@ describe('get_all_messages_for_chat tool', () => {
     const result = await handler('chat1@s.whatsapp.net')
     expect(result.isError).toBe(false)
     expect(result.structuredContent).toEqual({
-      messages: [{ key: { id: 'm1', remoteJid: 'chat1@s.whatsapp.net' }, message: { conversation: 'a' } }],
+      messages: [validMsg('m1', 'chat1@s.whatsapp.net', 'a')],
     })
   })
 
@@ -165,9 +171,7 @@ describe('get_all_messages_for_chat tool', () => {
     const server = createMockServer()
     const store = createMockStore()
     const sync = createMockSync()
-    vi.mocked(store.getMessages).mockReturnValue([
-      { key: { id: 'm1', remoteJid: 'chat1@s.whatsapp.net' }, message: { conversation: 'a' } },
-    ])
+    vi.mocked(store.getMessagesForChat).mockReturnValue([])
 
     registerMessageTools(server, store, sync)
     const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'get_all_messages_for_chat')

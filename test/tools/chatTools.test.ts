@@ -5,6 +5,8 @@ import type { WhatsAppHandler, SyncStatus } from '../../src/sync.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
+const validChat = { id: 'c1', unreadCount: 0, readOnly: false, name: 'Chat1', archived: false, lastMessageTimestamp: 1000, isGroup: false }
+
 function createMockServer(): McpServer & { registerTool: Mock } {
   return {
     registerTool: vi.fn(),
@@ -16,6 +18,7 @@ function createMockStore(): WhatsAppStore {
     bind: vi.fn(),
     getChats: vi.fn().mockReturnValue([]),
     getChat: vi.fn().mockReturnValue(undefined),
+    getRawChat: vi.fn().mockReturnValue(undefined),
     getContacts: vi.fn().mockReturnValue([]),
     getContact: vi.fn().mockReturnValue(undefined),
     getMessages: vi.fn().mockReturnValue([]),
@@ -33,6 +36,7 @@ function createMockSync(status: SyncStatus = { type: 'ready' }): WhatsAppHandler
     sendMessage: vi.fn(),
     setArchived: vi.fn(),
     setRead: vi.fn(),
+    start: vi.fn().mockResolvedValue(undefined),
   }
 }
 
@@ -128,7 +132,7 @@ describe('get_all_chats tool', () => {
     const server = createMockServer()
     const store = createMockStore()
     const sync = createMockSync()
-    vi.mocked(store.getChats).mockReturnValue([{ id: 'c1', name: 'Chat1' }])
+    vi.mocked(store.getChats).mockReturnValue([validChat])
 
     registerChatTools(server, store, sync)
     const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'get_all_chats')
@@ -136,7 +140,7 @@ describe('get_all_chats tool', () => {
 
     const result = await handler()
     expect(result.isError).toBe(false)
-    expect(result.structuredContent).toEqual({ chats: [{ id: 'c1', name: 'Chat1' }] })
+    expect(result.structuredContent).toEqual({ chats: [validChat] })
   })
 
   it('returns empty array when no chats exist', async () => {

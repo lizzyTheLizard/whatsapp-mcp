@@ -10,7 +10,7 @@ function waitForNeedAuth(client: Client, timeoutMs = 15000): Promise<void> {
       client.callTool({ name: 'get_status' })
         .then((result) => {
           const status = (result.content as { text: string }[])[0].text
-          if (status === 'needAuth') resolve()
+          if (status.includes('Authentication is required')) resolve()
           else if (Date.now() - start < timeoutMs) setTimeout(poll, 100)
           else reject(new Error(`Timed out waiting for needAuth, got ${status}`))
         }).catch(reject)
@@ -133,11 +133,9 @@ describe('MCP Server Integration', () => {
     it('returns QR code content', async () => {
       const result = await client.callTool({ name: 'get_auth_qr', arguments: {} })
       expect(result.isError).toBe(false)
-      expect(result.content).toBeDefined()
-      const content = result.content as { type: string, text?: string, data?: string, mimeType?: string }[]
-      const types = content.map(c => c.type)
-      expect(types).toContain('image')
-      expect(types).toContain('text')
+      expect(result.structuredContent).toBeDefined()
+      expect((result.structuredContent as { url: string }).url).toMatch(/^https?:\/\//)
+      expect((result.structuredContent as { code: string }).code).toBeTruthy()
     })
   })
 })
