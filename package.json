@@ -39,7 +39,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
-    "mcpb": "node scripts/create-mcpb.mjs"
+    "mcpb": "tsc && node scripts/create-mcpb.mjs"
   },
   "keywords": [
     "mcp",

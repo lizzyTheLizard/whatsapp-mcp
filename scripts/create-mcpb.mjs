@@ -28,19 +28,17 @@ const manifest = {
   repository: pkg.repository,
 }
 
-console.log(`Creating mcpb-build folder with prod packages only at ${mcpbuildPath}`)
+console.log(`Creating mcpb package for ${pkg.name} version ${pkg.version}`)
 rmSync(mcpbuildPath, { recursive: true, force: true })
 mkdirSync(mcpbuildPath, { recursive: true })
 cpSync(pkgPath, resolve(mcpbuildPath, 'package.json'))
 cpSync(resolve(appDir, 'package-lock.json'), resolve(mcpbuildPath, 'package-lock.json'))
 cpSync(resolve(appDir, 'dist'), resolve(mcpbuildPath, 'dist'), { recursive: true, force: true })
 execSync(`npm ci --omit=dev --omit=optional --omit=peer`, { cwd: mcpbuildPath })
-console.log(`Created mcpb-build folder with prod packages only at ${mcpbuildPath}`)
 const manifestPath = resolve(mcpbuildPath, 'manifest.json')
 writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
-console.log(`Created manifest.json at ${manifestPath}`)
+console.log(`Created mcpb-build folder at ${mcpbuildPath}`)
 execSync(`pnpm dlx @anthropic-ai/mcpb pack . whatsapp-mcp.mcpb`, { cwd: mcpbuildPath })
-console.log(`Created whatsapp-mcp.mcpb at ${resolve(mcpbuildPath, 'whatsapp-mcp.mcpb')}`)
 cpSync(resolve(mcpbuildPath, 'whatsapp-mcp.mcpb'), resolve(appDir, 'whatsapp-mcp.mcpb'))
 rmSync(mcpbuildPath, { recursive: true, force: true })
-console.log(`Copied whatsapp-mcp.mcpb to ${resolve(appDir, 'whatsapp-mcp.mcpb')} and removed mcpb-build folder`)
+console.log(`Created whatsapp-mcp.mcpb at ${resolve(appDir, 'whatsapp-mcp.mcpb')}`)
