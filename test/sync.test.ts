@@ -9,8 +9,14 @@ beforeEach(() => {
 })
 
 describe('createHandler', () => {
-  it('initial state is connecting', () => {
+  it('initial state is notstarted', () => {
     const handler = createHandler(createStore(undefined))
+    expect(handler.getStatus()).toEqual({ type: 'notstarted' })
+  })
+
+  it('transitions to connecting', async () => {
+    const handler = await createStartedHandlerWithMockSocket()
+    emitOnMockSocket({ connection: 'connecting' })
     expect(handler.getStatus()).toEqual({ type: 'connecting' })
   })
 
@@ -89,7 +95,7 @@ describe('getStatus', () => {
   it('returns the current state', async () => {
     const store = createStore(undefined)
     const handler = createHandler(store)
-    expect(handler.getStatus().type).toBe('connecting')
+    expect(handler.getStatus().type).toBe('notstarted')
     const startPromise = handler.start()
     emitOnMockSocket({ connection: 'open' })
     await startPromise

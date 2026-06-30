@@ -3,3 +3,4 @@ dist
 data
 whatsapp-mcp-*.mcpb
 mcpb-build
+.eslintcache

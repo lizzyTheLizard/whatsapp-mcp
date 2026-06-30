@@ -1,6 +1,6 @@
 {
   "name": "@lizzythelizard/whatsapp-mcp",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "MCP server for WhatsApp integration",
   "author": {
     "name": "Matthias Graf"
@@ -36,8 +36,8 @@
     "inspect": "npx @modelcontextprotocol/inspector node dist/mcp.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint": "eslint . --fix --cache",
+    "lint:ci": "eslint .",
     "mcpb": "tsc && node scripts/create-mcpb.mjs"
   },
   "keywords": [

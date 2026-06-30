@@ -2,7 +2,7 @@ import makeWASocket, { WABrowserDescription, ConnectionState, proto } from '@whi
 import { WhatsAppStore } from './store.js'
 import { consoleLog, ILogger } from './logger.js'
 
-export type SyncStatus = { type: 'connecting' } | { type: 'needAuth', qr: string } | { type: 'ready' } | { type: 'closed', error?: Error }
+export type SyncStatus = { type: 'notstarted' } | { type: 'connecting' } | { type: 'needAuth', qr: string } | { type: 'ready' } | { type: 'closed', error?: Error }
 
 export interface WhatsAppHandler {
   close: () => void
@@ -21,7 +21,7 @@ export interface WhatsAppHandlerOptions {
 export function createHandler(store: WhatsAppStore, options?: WhatsAppHandlerOptions): WhatsAppHandler {
   const name = options?.name ?? 'Whatsapp MCP'
   const logger = options?.logger ?? consoleLog
-  let state: SyncStatus = { type: 'connecting' }
+  let state: SyncStatus = { type: 'notstarted' }
   let sock: ReturnType<typeof makeWASocket> | undefined
   const browser = [name, 'Desktop', '1.0.0'] as WABrowserDescription
 
@@ -64,6 +64,7 @@ export function createHandler(store: WhatsAppStore, options?: WhatsAppHandlerOpt
   }
 
   function start(): Promise<void> {
+    state = { type: 'connecting' }
     sock = makeWASocket({ auth: store.getAuth(), browser, logger: baileysLogger, markOnlineOnConnect: false, syncFullHistory: true, emitOwnEvents: true })
     sock.ev.on('connection.update', (update) => {
       connectionUpdate(update, onClosed,
@@ -71,7 +72,7 @@ export function createHandler(store: WhatsAppStore, options?: WhatsAppHandlerOpt
         () => state = { type: 'ready' })
     })
     store.bind(sock.ev)
-    logger.debug(`Started WhatsApp sync}`)
+    logger.debug(`Started WhatsApp sync`)
 
     // wait for timeout or non 'connecting' state
     return new Promise<void>((resolve, reject) => {
@@ -90,6 +91,7 @@ export function createHandler(store: WhatsAppStore, options?: WhatsAppHandlerOpt
   }
 
   function startAgainAfterLogin() {
+    state = { type: 'connecting' }
     sock = makeWASocket({ auth: store.getAuth(), browser, logger: baileysLogger, markOnlineOnConnect: false, syncFullHistory: true, emitOwnEvents: true })
     sock.ev.on('connection.update', (update) => { connectionUpdateAfterLogin(update, onClosed, onError) })
     // wait untill no new messages are received for 2 seconds, then set state to ready
@@ -99,7 +101,7 @@ export function createHandler(store: WhatsAppStore, options?: WhatsAppHandlerOpt
       timeout = setTimeout(() => state = { type: 'ready' }, 2000)
     })
     store.bind(sock.ev)
-    logger.debug(`Restarted WhatsApp after login}`)
+    logger.debug(`Restarted WhatsApp after login`)
   }
 
   async function sendMessage(jid: string, message: string): Promise<void> {
