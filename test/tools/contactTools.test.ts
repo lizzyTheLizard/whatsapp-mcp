@@ -1,55 +1,14 @@
-import { describe, it, expect, vi, Mock } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { registerContactResources } from '../../src/tools/contactTools.js'
-import type { WhatsAppStore } from '../../src/store.js'
-import type { WhatsAppHandler, SyncStatus } from '../../src/sync.js'
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-
-function createMockServer(): McpServer & { registerTool: Mock } {
-  return {
-    registerTool: vi.fn(),
-  } as unknown as McpServer & { registerTool: Mock }
-}
-
-function createMockStore(): WhatsAppStore {
-  return {
-    bind: vi.fn(),
-    getChats: vi.fn().mockReturnValue([]),
-    getChat: vi.fn().mockReturnValue(undefined),
-    getRawChat: vi.fn().mockReturnValue(undefined),
-    getContacts: vi.fn().mockReturnValue([]),
-    getContact: vi.fn().mockReturnValue(undefined),
-    getMessages: vi.fn().mockReturnValue([]),
-    getMessage: vi.fn().mockReturnValue(undefined),
-    getMessagesForChat: vi.fn().mockReturnValue([]),
-    reset: vi.fn(),
-    getAuth: vi.fn(),
-  }
-}
-
-function createMockSync(status: SyncStatus = { type: 'ready' }): WhatsAppHandler {
-  return {
-    close: vi.fn(),
-    getStatus: vi.fn().mockReturnValue(status),
-    sendMessage: vi.fn(),
-    setArchived: vi.fn(),
-    setRead: vi.fn(),
-    start: vi.fn().mockResolvedValue(undefined),
-  }
-}
+import { registerTools } from './mockServer.js'
 
 const validContact = { jid: 'c1', name: 'Contact1', phone: '+41 79 123 45 67' }
 
 describe('get_all_contacts tool', () => {
   it('returns store.getContacts() as structured output', async () => {
-    const server = createMockServer()
-    const store = createMockStore()
-    const sync = createMockSync()
-    vi.mocked(store.getContacts).mockReturnValue([validContact])
-
-    registerContactResources(server, store, sync)
-    const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'get_all_contacts')
-    const handler = tool?.[2] as () => Promise<CallToolResult>
+    const serverMock = registerTools(registerContactResources)
+    vi.mocked(serverMock.store.getContacts).mockReturnValue([validContact])
+    const handler = serverMock.getRegisteredToolHandler('get_all_contacts')
 
     const result = await handler()
     expect(result.isError).toBe(false)
@@ -57,13 +16,8 @@ describe('get_all_contacts tool', () => {
   })
 
   it('returns empty array when no contacts exist', async () => {
-    const server = createMockServer()
-    const store = createMockStore()
-    const sync = createMockSync()
-
-    registerContactResources(server, store, sync)
-    const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'get_all_contacts')
-    const handler = tool?.[2] as () => Promise<CallToolResult>
+    const serverMock = registerTools(registerContactResources)
+    const handler = serverMock.getRegisteredToolHandler('get_all_contacts')
 
     const result = await handler()
     expect(result.isError).toBe(false)
@@ -75,13 +29,8 @@ describe('get_all_contacts tool', () => {
     ['closed', { type: 'closed' } as const, 'Connection closed, please restart server'],
     ['needAuth', { type: 'needAuth', qr: 'test-qr-data' } as const, 'Authentication required, please call the "get_auth_qr" tool to get a QR code for authentication'],
   ])('returns error when status is %s', async (_, status, expectedMsg) => {
-    const server = createMockServer()
-    const store = createMockStore()
-    const sync = createMockSync(status)
-
-    registerContactResources(server, store, sync)
-    const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'get_all_contacts')
-    const handler = tool?.[2] as () => Promise<CallToolResult>
+    const serverMock = registerTools(registerContactResources, status)
+    const handler = serverMock.getRegisteredToolHandler('get_all_contacts')
 
     const result = await handler()
     expect(result.isError).toBe(true)

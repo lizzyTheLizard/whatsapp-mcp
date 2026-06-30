@@ -1,4 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+vi.mock('../src/dataDir.js', () => {
+  return {
+    readDataFromFile: vi.fn().mockResolvedValue(undefined),
+    writeDataToFile: vi.fn().mockResolvedValue(undefined),
+  }
+})
+
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { startServer } from '../src/mcp.js'

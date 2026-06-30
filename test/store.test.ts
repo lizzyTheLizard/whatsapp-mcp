@@ -2,20 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { createStore, type Emitter } from '../src/store.js'
 import { createExportableAuth, type ExportableAuthState } from '../src/auth.js'
 import type { BaileysEventMap } from '@whiskeysockets/baileys'
-
-type EventHandler = (events: Partial<BaileysEventMap>) => void | Promise<void>
-
-function createMockEmitter(): Emitter & { emit: (events: Partial<BaileysEventMap>) => void } {
-  let handler: EventHandler | undefined
-  return {
-    process: vi.fn((h: EventHandler) => { handler = h }),
-    emit: (events: Partial<BaileysEventMap>) => { void handler?.(events) },
-  }
-}
-
-const validContact = { id: 'c1', name: 'Contact', phoneNumber: '41791234567@s.whatsapp.net' }
-const validGroupChat = { id: 'c1@g.us', name: 'Chat', messages: [{}], archived: false, lastMessageRecvTimestamp: 1000 }
-const validMsg = (id: string, remoteJid = 'c1') => ({ key: { id, remoteJid }, message: { conversation: 'hello' }, messageTimestamp: 1000 })
+import { createMessage, initialDataStore, otherContact, otherGroup, initialContact, initialGroup, initialMessage } from './mockDataStore.js'
 
 describe('createStore', () => {
   it('starts with empty chats, contacts, messages', () => {
@@ -26,18 +13,13 @@ describe('createStore', () => {
   })
 
   it('loads initial data from DataStore', () => {
-    const store = createStore({
-      chats: JSON.stringify({ 'c1@g.us': validGroupChat }),
-      contacts: JSON.stringify({ c1: validContact }),
-      messages: JSON.stringify({ m1: validMsg('m1') }),
-      auth: '',
-    })
+    const store = createStore(initialDataStore)
     expect(store.getChats()).toHaveLength(1)
-    expect(store.getChat('c1@g.us')?.name).toBe('Chat')
+    expect(store.getChat(initialGroup.id)?.name).toBe('Chat')
     expect(store.getContacts()).toHaveLength(1)
-    expect(store.getContact('c1')?.name).toBe('Contact')
+    expect(store.getContact(initialContact.id)?.name).toBe('Contact')
     expect(store.getMessages()).toHaveLength(1)
-    expect(store.getMessage('m1')?.message).toBe('hello')
+    expect(store.getMessage(initialMessage.key.id)?.message).toBe('hello')
   })
 
   it('loads auth from initial data', () => {
@@ -64,9 +46,9 @@ describe('event processing', () => {
     store.bind(ev)
     ev.emit({
       'messaging-history.set': {
-        chats: [validGroupChat],
-        contacts: [validContact],
-        messages: [validMsg('m1')],
+        chats: [initialGroup],
+        contacts: [initialContact],
+        messages: [initialMessage],
       },
     })
     expect(store.getChats()).toHaveLength(1)
@@ -78,30 +60,30 @@ describe('event processing', () => {
     const store = createStore(undefined)
     const ev = createMockEmitter()
     store.bind(ev)
-    ev.emit({ 'chats.upsert': [validGroupChat] })
+    ev.emit({ 'chats.upsert': [initialGroup] })
     expect(store.getChats()).toHaveLength(1)
-    expect(store.getChat('c1@g.us')?.name).toBe('Chat')
+    expect(store.getChat(initialGroup.id)?.name).toBe('Chat')
   })
 
   it('processes chats.upsert — merges into existing chats', () => {
     const store = createStore(undefined)
     const ev = createMockEmitter()
     store.bind(ev)
-    ev.emit({ 'chats.upsert': [{ ...validGroupChat, name: 'First' }] })
-    ev.emit({ 'chats.upsert': [{ id: 'c1@g.us', archived: true }] })
+    ev.emit({ 'chats.upsert': [{ ...initialGroup, name: 'First' }] })
+    ev.emit({ 'chats.upsert': [{ id: initialGroup.id, archived: true }] })
     expect(store.getChats()).toHaveLength(1)
-    expect(store.getChat('c1@g.us')?.name).toBe('First')
-    expect(store.getChat('c1@g.us')?.archived).toBe(true)
+    expect(store.getChat(initialGroup.id)?.name).toBe('First')
+    expect(store.getChat(initialGroup.id)?.archived).toBe(true)
   })
 
   it('processes chats.update — merges partial updates', () => {
     const store = createStore(undefined)
     const ev = createMockEmitter()
     store.bind(ev)
-    ev.emit({ 'chats.upsert': [{ id: 'c1@g.us', name: 'Chat', messages: [{}], archived: false, lastMessageRecvTimestamp: 1000 }] })
-    ev.emit({ 'chats.update': [{ id: 'c1@g.us', archived: true }] })
-    expect(store.getChat('c1@g.us')?.archived).toBe(true)
-    expect(store.getChat('c1@g.us')?.name).toBe('Chat')
+    ev.emit({ 'chats.upsert': [{ id: initialGroup.id, name: 'Chat', messages: [{}], archived: false, lastMessageRecvTimestamp: 1000 }] })
+    ev.emit({ 'chats.update': [{ id: initialGroup.id, archived: true }] })
+    expect(store.getChat(initialGroup.id)?.archived).toBe(true)
+    expect(store.getChat(initialGroup.id)?.name).toBe('Chat')
   })
 
   it('processes chats.delete — removes chats by id', () => {
@@ -109,30 +91,30 @@ describe('event processing', () => {
     const ev = createMockEmitter()
     store.bind(ev)
     ev.emit({ 'chats.upsert': [
-      { id: 'c1@g.us', name: 'One', messages: [{}], archived: false, lastMessageRecvTimestamp: 1000 },
-      { id: 'c2@g.us', name: 'Two', messages: [{}], archived: false, lastMessageRecvTimestamp: 2000 },
+      { id: initialGroup.id, name: 'One', messages: [{}], archived: false, lastMessageRecvTimestamp: 1000 },
+      { id: otherGroup.id, name: 'Two', messages: [{}], archived: false, lastMessageRecvTimestamp: 2000 },
     ] })
-    ev.emit({ 'chats.delete': ['c1@g.us'] })
+    ev.emit({ 'chats.delete': [initialGroup.id] })
     expect(store.getChats()).toHaveLength(1)
-    expect(store.getChat('c2@g.us')?.name).toBe('Two')
+    expect(store.getChat(otherGroup.id)?.name).toBe('Two')
   })
 
   it('processes contacts.upsert — adds new contacts', () => {
     const store = createStore(undefined)
     const ev = createMockEmitter()
     store.bind(ev)
-    ev.emit({ 'contacts.upsert': [validContact] })
+    ev.emit({ 'contacts.upsert': [initialContact] })
     expect(store.getContacts()).toHaveLength(1)
-    expect(store.getContact('c1')?.name).toBe('Contact')
+    expect(store.getContact(initialContact.id)?.name).toBe('Contact')
   })
 
   it('processes contacts.update — merges partial updates', () => {
     const store = createStore(undefined)
     const ev = createMockEmitter()
     store.bind(ev)
-    ev.emit({ 'contacts.upsert': [{ ...validContact, name: 'Old', status: 'away' }] })
-    ev.emit({ 'contacts.update': [{ id: 'c1', status: 'available' }] })
-    expect(store.getContact('c1')?.name).toBe('Old')
+    ev.emit({ 'contacts.upsert': [{ ...initialContact, name: 'Old', status: 'away' }] })
+    ev.emit({ 'contacts.update': [{ id: initialContact.id, status: 'available' }] })
+    expect(store.getContact(initialContact.id)?.name).toBe('Old')
   })
 
   it('processes messages.upsert — adds messages from .messages sub-property', () => {
@@ -141,12 +123,12 @@ describe('event processing', () => {
     store.bind(ev)
     ev.emit({
       'messages.upsert': {
-        messages: [validMsg('m1')],
+        messages: [initialMessage],
         type: 'notify',
       },
     })
     expect(store.getMessages()).toHaveLength(1)
-    expect(store.getMessage('m1')?.message).toBe('hello')
+    expect(store.getMessage(initialMessage.key.id)?.message).toBe('hello')
   })
 
   it('processes messages.update — merges the update wrapper', () => {
@@ -155,14 +137,14 @@ describe('event processing', () => {
     store.bind(ev)
     ev.emit({
       'messages.upsert': {
-        messages: [validMsg('m1')],
+        messages: [initialMessage],
         type: 'notify',
       },
     })
     ev.emit({
-      'messages.update': [{ key: { id: 'm1' }, update: { message: { conversation: 'updated' } } }],
+      'messages.update': [{ key: { id: initialMessage.key.id }, update: { message: { conversation: 'updated' } } }],
     })
-    expect(store.getMessage('m1')?.message).toBe('hello')
+    expect(store.getMessage(initialMessage.key.id)?.message).toBe('hello')
   })
 
   it('processes messages.delete with keys array', () => {
@@ -171,11 +153,11 @@ describe('event processing', () => {
     store.bind(ev)
     ev.emit({
       'messages.upsert': {
-        messages: [validMsg('m1'), validMsg('m2')],
+        messages: [initialMessage, createMessage('m2')],
         type: 'notify',
       },
     })
-    ev.emit({ 'messages.delete': { keys: [{ id: 'm1' }] } })
+    ev.emit({ 'messages.delete': { keys: [{ id: initialMessage.key.id }] } })
     expect(store.getMessages()).toHaveLength(1)
     expect(store.getMessage('m2')).toBeDefined()
   })
@@ -186,11 +168,11 @@ describe('event processing', () => {
     store.bind(ev)
     ev.emit({
       'messages.upsert': {
-        messages: [validMsg('m1', 'c1'), validMsg('m2', 'c2')],
+        messages: [initialMessage, createMessage('m2', otherGroup.id)],
         type: 'notify',
       },
     })
-    ev.emit({ 'messages.delete': { jid: 'c1', all: true } })
+    ev.emit({ 'messages.delete': { jid: initialContact.id, all: true } })
     expect(store.getMessages()).toHaveLength(1)
     expect(store.getMessage('m2')).toBeDefined()
   })
@@ -226,7 +208,7 @@ describe('save callback', () => {
     const store = createStore(undefined, { writeData: saveCb })
     const ev = createMockEmitter()
     store.bind(ev)
-    ev.emit({ 'chats.upsert': [{ id: 'c1@g.us', name: 'Chat', messages: [{}], archived: false, lastMessageRecvTimestamp: 1000 }] })
+    ev.emit({ 'chats.upsert': [{ id: initialGroup.id, name: 'Chat', messages: [{}], archived: false, lastMessageRecvTimestamp: 1000 }] })
     vi.advanceTimersByTime(1000)
     await vi.waitFor(() => { expect(saveCb).toHaveBeenCalledTimes(1) })
 
@@ -243,9 +225,9 @@ describe('save callback', () => {
     const store = createStore(undefined, { writeData: saveCb })
     const ev = createMockEmitter()
     store.bind(ev)
-    ev.emit({ 'chats.upsert': [{ id: 'c1@g.us', name: 'A', messages: [{}], archived: false, lastMessageRecvTimestamp: 1000 }] })
+    ev.emit({ 'chats.upsert': [{ id: initialGroup.id, name: 'A', messages: [{}], archived: false, lastMessageRecvTimestamp: 1000 }] })
     vi.advanceTimersByTime(500)
-    ev.emit({ 'chats.upsert': [{ id: 'c2@g.us', name: 'B', messages: [{}], archived: false, lastMessageRecvTimestamp: 2000 }] })
+    ev.emit({ 'chats.upsert': [{ id: otherGroup.id, name: 'B', messages: [{}], archived: false, lastMessageRecvTimestamp: 2000 }] })
     vi.advanceTimersByTime(1000)
     await vi.waitFor(() => { expect(saveCb).toHaveBeenCalledTimes(1) })
   })
@@ -255,7 +237,7 @@ describe('save callback', () => {
     const store = createStore(undefined, { writeData: saveCb })
     const ev = createMockEmitter()
     store.bind(ev)
-    ev.emit({ 'chats.upsert': [{ id: 'c1@g.us', name: 'Chat', messages: [{}], archived: false, lastMessageRecvTimestamp: 1000 }] })
+    ev.emit({ 'chats.upsert': [{ id: initialGroup.id, name: 'Chat', messages: [{}], archived: false, lastMessageRecvTimestamp: 1000 }] })
     vi.advanceTimersByTime(1000)
     await vi.waitFor(() => { expect(saveCb).toHaveBeenCalled() })
   })
@@ -267,8 +249,8 @@ describe('getters', () => {
     const ev = createMockEmitter()
     store.bind(ev)
     ev.emit({ 'chats.upsert': [
-      { id: 'c1@g.us', name: 'C1', messages: [{}], archived: false, lastMessageRecvTimestamp: 1000 },
-      { id: 'c2@g.us', name: 'C2', messages: [{}], archived: false, lastMessageRecvTimestamp: 2000 },
+      { id: initialGroup.id, name: 'C1', messages: [{}], archived: false, lastMessageRecvTimestamp: 1000 },
+      { id: otherGroup.id, name: 'C2', messages: [{}], archived: false, lastMessageRecvTimestamp: 2000 },
     ] })
     expect(store.getChats()).toHaveLength(2)
   })
@@ -281,7 +263,7 @@ describe('getters', () => {
     const store = createStore(undefined)
     const ev = createMockEmitter()
     store.bind(ev)
-    ev.emit({ 'contacts.upsert': [{ ...validContact, id: 'c1' }, { ...validContact, id: 'c2' }] })
+    ev.emit({ 'contacts.upsert': [initialContact, otherContact] })
     expect(store.getContacts()).toHaveLength(2)
   })
 
@@ -295,7 +277,7 @@ describe('getters', () => {
     store.bind(ev)
     ev.emit({
       'messages.upsert': {
-        messages: [validMsg('m1'), validMsg('m2')],
+        messages: [initialMessage, createMessage('m2')],
         type: 'notify',
       },
     })
@@ -314,9 +296,9 @@ describe('reset', () => {
     store.bind(ev)
     ev.emit({
       'messaging-history.set': {
-        chats: [validGroupChat],
-        contacts: [validContact],
-        messages: [validMsg('m1')],
+        chats: [initialGroup],
+        contacts: [initialContact],
+        messages: [initialMessage],
       },
     })
     store.reset(true)
@@ -335,11 +317,11 @@ describe('reset', () => {
     const store = createStore(undefined)
     const ev = createMockEmitter()
     store.bind(ev)
-    ev.emit({ 'chats.upsert': [{ id: 'c1@g.us', name: 'C1', messages: [{}], archived: false, lastMessageRecvTimestamp: 1000 }] })
+    ev.emit({ 'chats.upsert': [{ id: initialGroup.id, name: 'C1', messages: [{}], archived: false, lastMessageRecvTimestamp: 1000 }] })
     store.reset(true)
-    ev.emit({ 'chats.upsert': [{ id: 'c2@g.us', name: 'C2', messages: [{}], archived: false, lastMessageRecvTimestamp: 2000 }] })
+    ev.emit({ 'chats.upsert': [otherGroup] })
     expect(store.getChats()).toHaveLength(1)
-    expect(store.getChat('c2@g.us')).toBeDefined()
+    expect(store.getChat(otherGroup.id)).toBeDefined()
   })
 })
 
@@ -352,3 +334,13 @@ describe('getAuth', () => {
     expect(typeof auth.toAuthState).toBe('function')
   })
 })
+
+type EventHandler = (events: Partial<BaileysEventMap>) => void | Promise<void>
+
+function createMockEmitter(): Emitter & { emit: (events: Partial<BaileysEventMap>) => void } {
+  let handler: EventHandler | undefined
+  return {
+    process: vi.fn((h: EventHandler) => { handler = h }),
+    emit: (events: Partial<BaileysEventMap>) => { void handler?.(events) },
+  }
+}

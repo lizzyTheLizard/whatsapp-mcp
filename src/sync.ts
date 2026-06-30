@@ -1,4 +1,4 @@
-import makeWASocket, { WABrowserDescription, ConnectionState, WAMessage, proto } from '@whiskeysockets/baileys'
+import makeWASocket, { WABrowserDescription, ConnectionState, proto } from '@whiskeysockets/baileys'
 import { WhatsAppStore } from './store.js'
 import { consoleLog, ILogger } from './logger.js'
 
@@ -8,7 +8,7 @@ export interface WhatsAppHandler {
   close: () => void
   start: () => Promise<void>
   getStatus: () => SyncStatus
-  sendMessage: (jid: string, text: string) => Promise<WAMessage>
+  sendMessage: (jid: string, text: string) => Promise<void>
   setRead: (jid: string, read: boolean) => Promise<void>
   setArchived: (jid: string, archived: boolean) => Promise<void>
 }
@@ -102,7 +102,7 @@ export function createHandler(store: WhatsAppStore, options?: WhatsAppHandlerOpt
     logger.debug(`Restarted WhatsApp after login}`)
   }
 
-  async function sendMessage(jid: string, message: string): Promise<WAMessage> {
+  async function sendMessage(jid: string, message: string): Promise<void> {
     if (state.type === 'connecting') throw new Error('Server still connecting, please wait')
     if (state.type === 'closed') throw new Error('Connection closed, please restart server')
     if (state.type === 'needAuth') throw new Error('Authentication needed, please authenticate yourself first')
@@ -111,7 +111,6 @@ export function createHandler(store: WhatsAppStore, options?: WhatsAppHandlerOpt
     const result = await sock.sendMessage(jid, { text: message })
     if (!result) throw new Error(`Failed to send message to ${jid}`)
     logger.info(`Sent message to ${jid}: ${message}`)
-    return result
   }
 
   async function setArchived(jid: string, archived: boolean): Promise<void> {
@@ -156,11 +155,11 @@ export function createHandler(store: WhatsAppStore, options?: WhatsAppHandlerOpt
 
   return {
     getStatus: () => state,
-    sendMessage: sendMessage,
-    setArchived: setArchived,
-    setRead: setRead,
-    close: close,
-    start: start,
+    sendMessage,
+    setArchived,
+    setRead,
+    close,
+    start,
   }
 }
 

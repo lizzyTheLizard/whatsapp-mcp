@@ -1,72 +1,26 @@
-import { describe, it, expect, vi, Mock } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { registerChatTools } from '../../src/tools/chatTools.js'
-import type { WhatsAppStore } from '../../src/store.js'
-import type { WhatsAppHandler, SyncStatus } from '../../src/sync.js'
-import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import { registerTools } from './mockServer.js'
 
 const validChat = { jid: 'c1', unreadCount: 0, readOnly: false, name: 'Chat1', archived: false, lastMessageTimestamp: 1000, isGroup: false }
 
-function createMockServer(): McpServer & { registerTool: Mock } {
-  return {
-    registerTool: vi.fn(),
-  } as unknown as McpServer & { registerTool: Mock }
-}
-
-function createMockStore(): WhatsAppStore {
-  return {
-    bind: vi.fn(),
-    getChats: vi.fn().mockReturnValue([]),
-    getChat: vi.fn().mockReturnValue(undefined),
-    getRawChat: vi.fn().mockReturnValue(undefined),
-    getContacts: vi.fn().mockReturnValue([]),
-    getContact: vi.fn().mockReturnValue(undefined),
-    getMessages: vi.fn().mockReturnValue([]),
-    getMessage: vi.fn().mockReturnValue(undefined),
-    getMessagesForChat: vi.fn().mockReturnValue([]),
-    reset: vi.fn(),
-    getAuth: vi.fn(),
-  }
-}
-
-function createMockSync(status: SyncStatus = { type: 'ready' }): WhatsAppHandler {
-  return {
-    close: vi.fn(),
-    getStatus: vi.fn().mockReturnValue(status),
-    sendMessage: vi.fn(),
-    setArchived: vi.fn(),
-    setRead: vi.fn(),
-    start: vi.fn().mockResolvedValue(undefined),
-  }
-}
-
 describe('set_chat_archived handler', () => {
   it('calls sync.setArchived with jid and archived', async () => {
-    const server = createMockServer()
-    const store = createMockStore()
-    const sync = createMockSync()
-    vi.mocked(sync.setArchived).mockResolvedValue(undefined)
+    const serverMock = registerTools(registerChatTools)
+    vi.mocked(serverMock.sync.setArchived).mockResolvedValue(undefined)
+    const handler = serverMock.getRegisteredToolHandler('set_chat_archived')
 
-    registerChatTools(server, store, sync)
-    const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'set_chat_archived')
-    const handler = tool?.[2] as (input: { jid: string, archived: boolean }) => Promise<CallToolResult>
-
-    const result: CallToolResult = await handler({ jid: 'user@s.whatsapp.net', archived: true })
-    expect(sync.setArchived).toHaveBeenCalledWith('user@s.whatsapp.net', true)
+    const result = await handler({ jid: 'user@s.whatsapp.net', archived: true })
+    expect(serverMock.sync.setArchived).toHaveBeenCalledWith('user@s.whatsapp.net', true)
     expect(result.isError).toBe(false)
   })
 
   it('returns error when sync.setArchived fails', async () => {
-    const server = createMockServer()
-    const store = createMockStore()
-    const sync = createMockSync()
-    vi.mocked(sync.setArchived).mockRejectedValue(new Error('no chat'))
+    const serverMock = registerTools(registerChatTools)
+    vi.mocked(serverMock.sync.setArchived).mockRejectedValue(new Error('no chat'))
+    const handler = serverMock.getRegisteredToolHandler('set_chat_archived')
 
-    registerChatTools(server, store, sync)
-    const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'set_chat_archived')
-    const handler = tool?.[2] as (input: { jid: string, archived: boolean }) => Promise<CallToolResult>
-
-    const result: CallToolResult = await handler({ jid: 'user@s.whatsapp.net', archived: false })
+    const result = await handler({ jid: 'user@s.whatsapp.net', archived: false })
     expect(result.isError).toBe(true)
     expect(result.content[0]).toEqual({ text: 'Error: no chat', type: 'text' })
   })
@@ -76,34 +30,24 @@ describe('set_chat_archived handler', () => {
     ['closed', { type: 'closed' } as const, 'Connection closed, please restart server'],
     ['needAuth', { type: 'needAuth', qr: 'test-qr-data' } as const, 'Authentication required, please call the "get_auth_qr" tool to get a QR code for authentication'],
   ])('returns error when status is %s', async (_, status, expectedMsg) => {
-    const server = createMockServer()
-    const store = createMockStore()
-    const sync = createMockSync(status)
+    const serverMock = registerTools(registerChatTools, status)
+    const handler = serverMock.getRegisteredToolHandler('set_chat_archived')
 
-    registerChatTools(server, store, sync)
-    const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'set_chat_archived')
-    const handler = tool?.[2] as (input: { jid: string, archived: boolean }) => Promise<CallToolResult>
-
-    const result: CallToolResult = await handler({ jid: 'user@s.whatsapp.net', archived: true })
+    const result = await handler({ jid: 'user@s.whatsapp.net', archived: true })
     expect(result.isError).toBe(true)
     expect(result.content[0]).toEqual({ text: `Error: ${expectedMsg}`, type: 'text' })
-    expect(sync.setArchived).not.toHaveBeenCalled()
+    expect(serverMock.sync.setArchived).not.toHaveBeenCalled()
   })
 })
 
 describe('set_chat_read handler', () => {
   it('calls sync.setRead with jid and read', async () => {
-    const server = createMockServer()
-    const store = createMockStore()
-    const sync = createMockSync()
-    vi.mocked(sync.setRead).mockResolvedValue(undefined)
+    const serverMock = registerTools(registerChatTools)
+    vi.mocked(serverMock.sync.setRead).mockResolvedValue(undefined)
+    const handler = serverMock.getRegisteredToolHandler('set_chat_read')
 
-    registerChatTools(server, store, sync)
-    const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'set_chat_read')
-    const handler = tool?.[2] as (input: { jid: string, read: boolean }) => Promise<CallToolResult>
-
-    const result: CallToolResult = await handler({ jid: 'user@s.whatsapp.net', read: true })
-    expect(sync.setRead).toHaveBeenCalledWith('user@s.whatsapp.net', true)
+    const result = await handler({ jid: 'user@s.whatsapp.net', read: true })
+    expect(serverMock.sync.setRead).toHaveBeenCalledWith('user@s.whatsapp.net', true)
     expect(result.isError).toBe(false)
   })
 
@@ -112,31 +56,21 @@ describe('set_chat_read handler', () => {
     ['closed', { type: 'closed' } as const, 'Connection closed, please restart server'],
     ['needAuth', { type: 'needAuth', qr: 'test-qr-data' } as const, 'Authentication required, please call the "get_auth_qr" tool to get a QR code for authentication'],
   ])('returns error when status is %s', async (_, status, expectedMsg) => {
-    const server = createMockServer()
-    const store = createMockStore()
-    const sync = createMockSync(status)
+    const serverMock = registerTools(registerChatTools, status)
+    const handler = serverMock.getRegisteredToolHandler('set_chat_read')
 
-    registerChatTools(server, store, sync)
-    const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'set_chat_read')
-    const handler = tool?.[2] as (input: { jid: string, read: boolean }) => Promise<CallToolResult>
-
-    const result: CallToolResult = await handler({ jid: 'user@s.whatsapp.net', read: true })
+    const result = await handler({ jid: 'user@s.whatsapp.net', read: true })
     expect(result.isError).toBe(true)
     expect(result.content[0]).toEqual({ text: `Error: ${expectedMsg}`, type: 'text' })
-    expect(sync.setRead).not.toHaveBeenCalled()
+    expect(serverMock.sync.setRead).not.toHaveBeenCalled()
   })
 })
 
 describe('get_all_chats tool', () => {
   it('returns store.getChats() as structured output', async () => {
-    const server = createMockServer()
-    const store = createMockStore()
-    const sync = createMockSync()
-    vi.mocked(store.getChats).mockReturnValue([validChat])
-
-    registerChatTools(server, store, sync)
-    const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'get_all_chats')
-    const handler = tool?.[2] as () => Promise<CallToolResult>
+    const serverMock = registerTools(registerChatTools)
+    vi.mocked(serverMock.store.getChats).mockReturnValue([validChat])
+    const handler = serverMock.getRegisteredToolHandler('get_all_chats')
 
     const result = await handler()
     expect(result.isError).toBe(false)
@@ -144,13 +78,8 @@ describe('get_all_chats tool', () => {
   })
 
   it('returns empty array when no chats exist', async () => {
-    const server = createMockServer()
-    const store = createMockStore()
-    const sync = createMockSync()
-
-    registerChatTools(server, store, sync)
-    const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'get_all_chats')
-    const handler = tool?.[2] as () => Promise<CallToolResult>
+    const serverMock = registerTools(registerChatTools)
+    const handler = serverMock.getRegisteredToolHandler('get_all_chats')
 
     const result = await handler()
     expect(result.isError).toBe(false)
@@ -162,13 +91,8 @@ describe('get_all_chats tool', () => {
     ['closed', { type: 'closed' } as const, 'Connection closed, please restart server'],
     ['needAuth', { type: 'needAuth', qr: 'test-qr-data' } as const, 'Authentication required, please call the "get_auth_qr" tool to get a QR code for authentication'],
   ])('returns error when status is %s', async (_, status, expectedMsg) => {
-    const server = createMockServer()
-    const store = createMockStore()
-    const sync = createMockSync(status)
-
-    registerChatTools(server, store, sync)
-    const tool = server.registerTool.mock.calls.find((c: string[]) => c[0] === 'get_all_chats')
-    const handler = tool?.[2] as () => Promise<CallToolResult>
+    const serverMock = registerTools(registerChatTools, status)
+    const handler = serverMock.getRegisteredToolHandler('get_all_chats')
 
     const result = await handler()
     expect(result.isError).toBe(true)
