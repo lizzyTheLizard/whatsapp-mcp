@@ -4,7 +4,7 @@ import { ILogger } from './logger.js'
 export interface WAContactWithId extends WAContact { id: string }
 
 export interface Contact {
-  id: string
+  jid: string
   name: string
   phone: string
 }
@@ -24,7 +24,7 @@ export function toContactExt(contact: WAContactWithId | undefined, logger: ILogg
     return undefined
   }
   return {
-    id: contact.id,
+    jid: contact.id,
     name: contact.name,
     phone: whatsAppNameToPhomeNumber(contact.phoneNumber, logger),
   }
@@ -46,7 +46,7 @@ function whatsAppNameToPhomeNumber(whatsappid: string, logger: ILogger): string 
 export interface WAChatWithId extends WAChat { id: string }
 
 export interface Chat {
-  id: string
+  jid: string
   unreadCount: number
   readOnly: boolean
   name: string
@@ -74,7 +74,7 @@ export function toChatExt(chat: WAChatWithId | undefined, contacts: Map<string, 
   if (!name) return undefined
   if (!lastMessageTimestamp) return undefined
   return {
-    id: chat.id,
+    jid: chat.id,
     unreadCount: chat.unreadCount ?? 0,
     readOnly: chat.readOnly ?? false,
     name: name,
@@ -112,7 +112,7 @@ function getChatName(chat: WAChatWithId, contacts: Map<string, WAContactWithId>,
 export interface Message {
   id: string
   from?: {
-    id: string
+    jid: string
     name: string
     phone?: string
   }
@@ -161,7 +161,7 @@ function getMessageTimestamp(message: WAMessageWithId): number | undefined {
   return messageTimestamp
 }
 
-function getFrom(message: WAMessageWithId, contacts: Map<string, WAContactWithId>, logger: ILogger): { id: string, name: string, phone?: string } | undefined {
+function getFrom(message: WAMessageWithId, contacts: Map<string, WAContactWithId>, logger: ILogger): { jid: string, name: string, phone?: string } | undefined {
   if (message.key.fromMe) return undefined
   const from = message.participant ?? message.key.participant ?? message.key.remoteJid
   if (!from) {
@@ -175,16 +175,15 @@ function getFrom(message: WAMessageWithId, contacts: Map<string, WAContactWithId
   const contact = Array.from(contacts.values()).find(c => ((!!c.lid && c.lid === from) || c.id === from))
   if (!contact && from.endsWith('@lid')) {
     // TODO: It might be possible to get the phone number from the lid, using lid mappings, but for now we will just return the lid as the id
-    return { id: from, name: from }
+    return { jid: from, name: from }
   }
   if (!contact && from.endsWith('@s.whatsapp.net')) {
-    // This is a phone number
     const phone = whatsAppNameToPhomeNumber(from, logger)
-    return { id: from, name: phone, phone }
+    return { jid: from, name: phone, phone }
   }
   if (!contact) {
     logger.warn(`Message ${message.key.id} is from an unknown contact, from: ${from}`)
-    return { id: from, name: from }
+    return { jid: from, name: from }
   }
   const phone = contact.phoneNumber
     ? whatsAppNameToPhomeNumber(contact.phoneNumber, logger)
@@ -192,13 +191,13 @@ function getFrom(message: WAMessageWithId, contacts: Map<string, WAContactWithId
   const name = contact.name ?? contact.notify ?? contact.username ?? phone
   if (!name && from.endsWith('@lid')) {
     // TODO: It might be possible to get the phone number from the lid, using lid mappings, but for now we will just return the lid as the id
-    return { id: from, name: from }
+    return { jid: from, name: from }
   }
   else if (!name) {
     logger.warn(`Message ${message.key.id} is from a contact with no name, from: ${from}`)
-    return { id: from, name: from, phone }
+    return { jid: from, name: from, phone }
   }
-  return { id: from, name, phone: phone }
+  return { jid: from, name, phone: phone }
 }
 
 function getMessageContent(message: proto.IMessage, logger: ILogger): string | undefined {

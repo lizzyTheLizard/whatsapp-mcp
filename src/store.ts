@@ -10,13 +10,13 @@ export interface Emitter {
 export interface WhatsAppStore {
   bind: (ev: Emitter) => void
   getChats: () => Chat[]
-  getChat: (id: string) => Chat | undefined
-  getRawChat: (id: string) => WAChatWithId | undefined
+  getChat: (jid: string) => Chat | undefined
+  getRawChat: (jid: string) => WAChatWithId | undefined
   getContacts: () => Contact[]
-  getContact: (id: string) => Contact | undefined
+  getContact: (jid: string) => Contact | undefined
   getMessages: () => Message[]
   getMessage: (id: string) => Message | undefined
-  getMessagesForChat: (id: string) => Message[]
+  getMessagesForChat: (jid: string) => Message[]
   reset: (resetAuth: boolean) => void
   getAuth: () => AuthenticationState
 }

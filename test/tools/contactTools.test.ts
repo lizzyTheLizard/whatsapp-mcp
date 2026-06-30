@@ -38,7 +38,7 @@ function createMockSync(status: SyncStatus = { type: 'ready' }): WhatsAppHandler
   }
 }
 
-const validContact = { id: 'c1', name: 'Contact1', phone: '+41 79 123 45 67' }
+const validContact = { jid: 'c1', name: 'Contact1', phone: '+41 79 123 45 67' }
 
 describe('get_all_contacts tool', () => {
   it('returns store.getContacts() as structured output', async () => {
@@ -53,7 +53,7 @@ describe('get_all_contacts tool', () => {
 
     const result = await handler()
     expect(result.isError).toBe(false)
-    expect(result.structuredContent).toEqual({ contacts: [validContact] })
+    expect(result.structuredContent).toEqual([validContact])
   })
 
   it('returns empty array when no contacts exist', async () => {
@@ -67,7 +67,7 @@ describe('get_all_contacts tool', () => {
 
     const result = await handler()
     expect(result.isError).toBe(false)
-    expect(result.structuredContent).toEqual({ contacts: [] })
+    expect(result.structuredContent).toEqual([])
   })
 
   it.each([

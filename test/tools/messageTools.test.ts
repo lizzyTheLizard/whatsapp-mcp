@@ -40,7 +40,7 @@ function createMockSync(status: SyncStatus = { type: 'ready' }): WhatsAppHandler
 
 const validMsg = (id: string, remoteJid: string, text: string) => ({
   id,
-  from: { id: remoteJid, name: 'User' },
+  from: { jid: remoteJid, name: 'User' },
   message: text,
   messageTimestamp: 1000,
 })
@@ -113,7 +113,7 @@ describe('get_all_messages tool', () => {
 
     const result = await handler()
     expect(result.isError).toBe(false)
-    expect(result.structuredContent).toEqual({ messages: [validMsg('m1', 'user1@s.whatsapp.net', 'hi')] })
+    expect(result.structuredContent).toEqual([validMsg('m1', 'user1@s.whatsapp.net', 'hi')])
   })
 
   it('returns empty array when no messages exist', async () => {
@@ -127,7 +127,7 @@ describe('get_all_messages tool', () => {
 
     const result = await handler()
     expect(result.isError).toBe(false)
-    expect(result.structuredContent).toEqual({ messages: [] })
+    expect(result.structuredContent).toEqual([])
   })
 
   it.each([
@@ -162,9 +162,7 @@ describe('get_all_messages_for_chat tool', () => {
 
     const result = await handler('chat1@s.whatsapp.net')
     expect(result.isError).toBe(false)
-    expect(result.structuredContent).toEqual({
-      messages: [validMsg('m1', 'chat1@s.whatsapp.net', 'a')],
-    })
+    expect(result.structuredContent).toEqual([validMsg('m1', 'chat1@s.whatsapp.net', 'a')])
   })
 
   it('returns empty when no messages match the jid', async () => {
@@ -179,7 +177,7 @@ describe('get_all_messages_for_chat tool', () => {
 
     const result = await handler('other@s.whatsapp.net')
     expect(result.isError).toBe(false)
-    expect(result.structuredContent).toEqual({ messages: [] })
+    expect(result.structuredContent).toEqual([])
   })
 
   it.each([

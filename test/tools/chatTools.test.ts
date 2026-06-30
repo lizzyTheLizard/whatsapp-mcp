@@ -5,7 +5,7 @@ import type { WhatsAppHandler, SyncStatus } from '../../src/sync.js'
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
-const validChat = { id: 'c1', unreadCount: 0, readOnly: false, name: 'Chat1', archived: false, lastMessageTimestamp: 1000, isGroup: false }
+const validChat = { jid: 'c1', unreadCount: 0, readOnly: false, name: 'Chat1', archived: false, lastMessageTimestamp: 1000, isGroup: false }
 
 function createMockServer(): McpServer & { registerTool: Mock } {
   return {
@@ -140,7 +140,7 @@ describe('get_all_chats tool', () => {
 
     const result = await handler()
     expect(result.isError).toBe(false)
-    expect(result.structuredContent).toEqual({ chats: [validChat] })
+    expect(result.structuredContent).toEqual([validChat])
   })
 
   it('returns empty array when no chats exist', async () => {
@@ -154,7 +154,7 @@ describe('get_all_chats tool', () => {
 
     const result = await handler()
     expect(result.isError).toBe(false)
-    expect(result.structuredContent).toEqual({ chats: [] })
+    expect(result.structuredContent).toEqual([])
   })
 
   it.each([
