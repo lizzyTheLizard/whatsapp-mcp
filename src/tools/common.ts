@@ -4,6 +4,7 @@ import z from 'zod'
 
 export const JidSchema = z.union([
   z.string().min(1, 'JID is required').endsWith('@s.whatsapp.net', 'JID not a valid WhatsApp JID)'),
+  z.string().min(1, 'JID is required').endsWith('@lid', 'JID not a valid WhatsApp JID)'),
   z.string().min(1, 'JID is required').endsWith('@g.us', 'JID not a valid WhatsApp JID)'),
 ])
 

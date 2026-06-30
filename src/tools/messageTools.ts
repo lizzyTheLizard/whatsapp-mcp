@@ -10,11 +10,11 @@ export function registerMessageTools(server: McpServer, store: WhatsAppStore, sy
   )
 
   server.registerTool('get_all_messages', { description: 'Retrieve all WhatsApp messages across all chats. This can return a large amount of data.', outputSchema: AllMessagesSchema },
-    async () => withErrorHandling(sync, () => store.getMessages()),
+    async () => withErrorHandling(sync, () => ({ messages: store.getMessages() })),
   )
 
   server.registerTool('get_all_messages_for_chat', { description: 'Retrieve all WhatsApp messages for a specific chat.', inputSchema: GetChatMessagesSchema, outputSchema: AllMessagesSchema },
-    async args => withErrorHandling(sync, () => store.getMessagesForChat(args.jid)),
+    async args => withErrorHandling(sync, () => ({ messages: store.getMessagesForChat(args.jid) })),
   )
 }
 
@@ -29,13 +29,15 @@ const GetChatMessagesSchema = z.object({
   jid: JidSchema.describe('The JID of the chat. For example 41791234567@s.whatsapp.net for an individual or 1234567890-1234567890@g.us for a group'),
 })
 
-const AllMessagesSchema = z.array(z.object({
-  id: z.string().describe('Unique identifier of the message'),
-  from: z.object({
-    jid: JidSchema.describe('The JID of the sender'),
-    name: z.string().describe('Display name of the sender'),
-    phone: z.string().optional().describe('Phone number of the sender in international format'),
-  }).describe('Sender information (undefined if the message was sent by you)').optional(),
-  message: z.string().describe('Text content of the message'),
-  messageTimestamp: z.number().describe('Unix timestamp of when the message was sent'),
-})).describe('List of all WhatsApp messages across all chats')
+const AllMessagesSchema = z.object({
+  messages: z.array(z.object({
+    id: z.string().describe('Unique identifier of the message'),
+    from: z.object({
+      jid: JidSchema.describe('The JID of the sender'),
+      name: z.string().describe('Display name of the sender'),
+      phone: z.string().optional().describe('Phone number of the sender in international format'),
+    }).describe('Sender information (undefined if the message was sent by you)').optional(),
+    message: z.string().describe('Text content of the message'),
+    messageTimestamp: z.number().describe('Unix timestamp of when the message was sent'),
+  })),
+}).describe('List of all WhatsApp messages across all chats')

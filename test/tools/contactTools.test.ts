@@ -12,7 +12,7 @@ describe('get_all_contacts tool', () => {
 
     const result = await handler()
     expect(result.isError).toBe(false)
-    expect(result.structuredContent).toEqual([validContact])
+    expect(result.structuredContent).toEqual({ contacts: [validContact] })
   })
 
   it('returns empty array when no contacts exist', async () => {
@@ -21,7 +21,7 @@ describe('get_all_contacts tool', () => {
 
     const result = await handler()
     expect(result.isError).toBe(false)
-    expect(result.structuredContent).toEqual([])
+    expect(result.structuredContent).toEqual({ contacts: [] })
   })
 
   it.each([

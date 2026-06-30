@@ -74,7 +74,7 @@ describe('get_all_chats tool', () => {
 
     const result = await handler()
     expect(result.isError).toBe(false)
-    expect(result.structuredContent).toEqual([validChat])
+    expect(result.structuredContent).toEqual({ chats: [validChat] })
   })
 
   it('returns empty array when no chats exist', async () => {
@@ -83,7 +83,7 @@ describe('get_all_chats tool', () => {
 
     const result = await handler()
     expect(result.isError).toBe(false)
-    expect(result.structuredContent).toEqual([])
+    expect(result.structuredContent).toEqual({ chats: [] })
   })
 
   it.each([

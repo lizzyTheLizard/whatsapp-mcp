@@ -94,6 +94,6 @@ jobs:
         id: pkg
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
       - name: Create Release
-        run: gh release create v${{ steps.pkg.outputs.version }} whatsapp-mcp.mcpb --generate-notes
+        run: gh release create v${{ steps.pkg.outputs.version }} whatsapp-mcp-${{ steps.pkg.outputs.version }}.mcpb --generate-notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
