@@ -1,6 +1,6 @@
 {
   "name": "@lizzythelizard/whatsapp-mcp",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "MCP server for WhatsApp integration",
   "author": {
     "name": "Matthias Graf"
@@ -26,21 +26,19 @@
     "access": "public"
   },
   "bin": {
-    "whatsapp-mcp": "dist/main.js"
+    "whatsapp-mcp": "dist/mcp.js"
   },
   "scripts": {
     "build": "tsc",
-    "start": "node dist/main.js",
-    "dev": "tsx watch src/main.ts",
-    "inspect": "npx @modelcontextprotocol/inspector npm run --silent start",
+    "start": "node dist/mcp.js",
+    "dev": "tsx watch src/mcp.ts",
+    "cli": "tsx src/cli.ts",
+    "inspect": "npx @modelcontextprotocol/inspector node dist/mcp.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix",
-    "typecheck": "tsc --noEmit",
-    "mcpb:manifest": "node scripts/create-mcpb-manifest.mjs",
-    "mcpb:pack": "npx mcpb pack",
-    "mcpb": "npm run mcpb:manifest && npm run mcpb:pack"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "mcpb": "tsc && node scripts/create-mcpb.mjs"
   },
   "keywords": [
     "mcp",
@@ -50,17 +48,13 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@stylistic/eslint-plugin": "^5.10.0",
     "@whiskeysockets/baileys": "^7.0.0-rc13",
-    "qrcode": "^1.5.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@anthropic-ai/mcpb": "^2.1.2",
     "@eslint/js": "^10.0.1",
-    "@modelcontextprotocol/inspector": "^0.22.0",
+    "@stylistic/eslint-plugin": "^5.10.0",
     "@types/node": "^26.0.1",
-    "@types/qrcode": "^1.5.6",
     "@typescript-eslint/eslint-plugin": "^8.62.0",
     "eslint": "^10.5.0",
     "eslint-plugin-import-x": "^4.17.0",

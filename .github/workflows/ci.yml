@@ -22,7 +22,6 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run lint
-      - run: npm run typecheck
       - run: npm test
       - name: Check version can be published
         run: npm publish --dry-run
@@ -90,7 +89,6 @@ jobs:
         with:
           node-version: '24'
       - run: npm ci
-      - run: npm run build
       - run: npm run mcpb
       - name: Get version
         id: pkg

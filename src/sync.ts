@@ -1,28 +1,38 @@
-import makeWASocket, { WABrowserDescription, ConnectionState, WAMessage, proto } from '@whiskeysockets/baileys'
-import { createStore } from './store.js'
+import makeWASocket, { WABrowserDescription, ConnectionState, proto } from '@whiskeysockets/baileys'
+import { WhatsAppStore } from './store.js'
+import { consoleLog, ILogger } from './logger.js'
 
 export type SyncStatus = { type: 'connecting' } | { type: 'needAuth', qr: string } | { type: 'ready' } | { type: 'closed', error?: Error }
 
 export interface WhatsAppHandler {
   close: () => void
+  start: () => Promise<void>
   getStatus: () => SyncStatus
-  sendMessage: (jid: string, text: string) => Promise<WAMessage>
+  sendMessage: (jid: string, text: string) => Promise<void>
   setRead: (jid: string, read: boolean) => Promise<void>
   setArchived: (jid: string, archived: boolean) => Promise<void>
 }
 
-export function createHandler(store: ReturnType<typeof createStore>): WhatsAppHandler {
+export interface WhatsAppHandlerOptions {
+  name?: string
+  logger?: ILogger
+}
+
+export function createHandler(store: WhatsAppStore, options?: WhatsAppHandlerOptions): WhatsAppHandler {
+  const name = options?.name ?? 'Whatsapp MCP'
+  const logger = options?.logger ?? consoleLog
   let state: SyncStatus = { type: 'connecting' }
   let sock: ReturnType<typeof makeWASocket> | undefined
-  const browser = ['Gutschi.site', 'Desktop', '1.0.0'] as WABrowserDescription
+  const browser = [name, 'Desktop', '1.0.0'] as WABrowserDescription
 
   function onError(error: unknown): void {
     const arg = error instanceof Error ? error : new Error(String(error))
-    console.error(`Closing WhatsApp sync due to error ${arg}`)
+    logger.error(`Closing WhatsApp sync due to error ${arg}`)
     close(arg)
   }
 
   function close(error?: Error): void {
+    if (!error) logger.debug(`Closing WhatsApp sync from caller`)
     if (sock) {
       const sockCpy = sock
       sock = undefined
@@ -33,34 +43,50 @@ export function createHandler(store: ReturnType<typeof createStore>): WhatsAppHa
 
   function onClosed(error?: Error): void {
     if (!error) {
-      console.log(`WhatsApp sync connection closed without error`)
+      logger.debug(`WhatsApp sync connection closed without error`)
       state = { type: 'closed' }
       return
     }
     if (isInvalidAuthError(error)) {
-      console.warn(`WhatsApp sync requires re-authentication due to invalid auth state`)
-      store.reset()
-      start()
+      logger.warn(`WhatsApp sync requires re-authentication due to invalid auth state`)
+      store.reset(true)
+      start().catch((err: unknown) => { close(err instanceof Error ? err : new Error(String(err))) })
       return
     }
     if (isRequiredReconnectError(error)) {
-      console.log(`WhatsApp sync connection closed due to required reconnect`)
-      store.reset()
+      logger.debug(`WhatsApp sync connection closed due to required reconnect after successful login, restarting connection`)
+      store.reset(false)
       startAgainAfterLogin()
       return
     }
+    logger.error(`WhatsApp sync connection closed due to error ${error}`)
     state = { type: 'closed', error }
   }
 
-  function start() {
+  function start(): Promise<void> {
     sock = makeWASocket({ auth: store.getAuth(), browser, logger: baileysLogger, markOnlineOnConnect: false, syncFullHistory: true, emitOwnEvents: true })
     sock.ev.on('connection.update', (update) => {
       connectionUpdate(update, onClosed,
         qr => state = { type: 'needAuth', qr },
         () => state = { type: 'ready' })
-    },
-    )
+    })
     store.bind(sock.ev)
+    logger.debug(`Started WhatsApp sync}`)
+
+    // wait for timeout or non 'connecting' state
+    return new Promise<void>((resolve, reject) => {
+      // Ceheck evey 1s if status is still connecting, if not resolve, if timeout reject
+      const start = Date.now()
+      const timeoutMs = 120000
+      const poll = () => {
+        const status = state
+        if (status.type !== 'connecting') resolve()
+        else if (Date.now() - start < timeoutMs) setTimeout(poll, 100)
+        else reject(new Error(`Timed out waiting for ready, got ${status.type}`))
+        setTimeout(poll, 1000)
+      }
+      poll()
+    })
   }
 
   function startAgainAfterLogin() {
@@ -73,16 +99,18 @@ export function createHandler(store: ReturnType<typeof createStore>): WhatsAppHa
       timeout = setTimeout(() => state = { type: 'ready' }, 2000)
     })
     store.bind(sock.ev)
+    logger.debug(`Restarted WhatsApp after login}`)
   }
 
-  async function sendMessage(jid: string, message: string): Promise<WAMessage> {
+  async function sendMessage(jid: string, message: string): Promise<void> {
     if (state.type === 'connecting') throw new Error('Server still connecting, please wait')
     if (state.type === 'closed') throw new Error('Connection closed, please restart server')
     if (state.type === 'needAuth') throw new Error('Authentication needed, please authenticate yourself first')
     if (sock === undefined) throw new Error(`No Socket defined but state is ${state.type}. This is invalid, please restart server`)
+    logger.debug(`Sending message to ${jid}: ${message}`)
     const result = await sock.sendMessage(jid, { text: message })
     if (!result) throw new Error(`Failed to send message to ${jid}`)
-    return result
+    logger.info(`Sent message to ${jid}: ${message}`)
   }
 
   async function setArchived(jid: string, archived: boolean): Promise<void> {
@@ -90,15 +118,19 @@ export function createHandler(store: ReturnType<typeof createStore>): WhatsAppHa
     if (state.type === 'closed') throw new Error('Connection closed, please restart server')
     if (state.type === 'needAuth') throw new Error('Authentication needed, please authenticate yourself first')
     if (sock === undefined) throw new Error(`No Socket defined but state is ${state.type}. This is invalid, please restart server`)
-    const chat = store.getChat(jid)
+    const chat = store.getRawChat(jid)
     if (!chat) throw new Error(`No chat found for ${jid}`)
     const lastMessage = chat.messages?.[0].message
     if (!lastMessage) {
+      logger.debug(`Archiving chat ${jid} with no last message`)
       await sock.chatModify({ archive: archived, lastMessages: [] }, jid)
+      logger.info(`Archived chat ${jid} with no last message`)
       return
     }
     if (!lastMessage.key) throw new Error(`Last message for ${jid} has no key, cannot archive chat`)
+    logger.debug(`Archiving chat ${jid}}`)
     await sock.chatModify({ archive: archived, lastMessages: [lastMessage as proto.IWebMessageInfo & { key: typeof lastMessage.key }] }, jid)
+    logger.info(`Archived chat ${jid}}`)
   }
 
   async function setRead(jid: string, read: boolean): Promise<void> {
@@ -106,24 +138,28 @@ export function createHandler(store: ReturnType<typeof createStore>): WhatsAppHa
     if (state.type === 'closed') throw new Error('Connection closed, please restart server')
     if (state.type === 'needAuth') throw new Error('Authentication needed, please authenticate yourself first')
     if (sock === undefined) throw new Error(`No Socket defined but state is ${state.type}. This is invalid, please restart server`)
-    const chat = store.getChat(jid)
+    const chat = store.getRawChat(jid)
     if (!chat) throw new Error(`No chat found for ${jid}`)
     const lastMessage = chat.messages?.[0].message
     if (!lastMessage) {
+      logger.debug(`Marking chat ${jid} as ${read ? 'read' : 'unread'} with no last message`)
       await sock.chatModify({ markRead: read, lastMessages: [] }, jid)
+      logger.info(`Marked chat ${jid} as ${read ? 'read' : 'unread'} with no last message`)
       return
     }
     if (!lastMessage.key) throw new Error(`Last message for ${jid} has no key, cannot mark chat as unread`)
+    logger.debug(`Marking chat ${jid} as ${read ? 'read' : 'unread'}`)
     await sock.chatModify({ markRead: read, lastMessages: [lastMessage as proto.IWebMessageInfo & { key: typeof lastMessage.key }] }, jid)
+    logger.info(`Marked chat ${jid} as ${read ? 'read' : 'unread'}`)
   }
-  start()
 
   return {
     getStatus: () => state,
-    sendMessage: sendMessage,
-    setArchived: setArchived,
-    setRead: setRead,
-    close: close,
+    sendMessage,
+    setArchived,
+    setRead,
+    close,
+    start,
   }
 }
 

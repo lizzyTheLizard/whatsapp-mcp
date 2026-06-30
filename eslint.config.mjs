@@ -10,14 +10,14 @@ export default defineConfig([
   tseslint.configs.strictTypeChecked,
   tseslint.configs.stylisticTypeChecked,
   stylistic.configs.recommended,
-  globalIgnores(['node_modules/**', 'dist/**']),
+  globalIgnores(['node_modules/**', 'dist/**', 'data/**']),
   {
     plugins: { 'import-x': importX },
     languageOptions: {
       parserOptions: {
         tsconfigRootDir: import.meta.dirname,
         projectService: {
-          allowDefaultProject: ['src/*.test.ts', 'src/tools/*.test.ts'],
+          allowDefaultProject: ['vitest.config.ts'],
         },
       },
     },

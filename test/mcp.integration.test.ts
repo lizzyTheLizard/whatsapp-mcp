@@ -1,7 +1,14 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+vi.mock('../src/dataDir.js', () => {
+  return {
+    readDataFromFile: vi.fn().mockResolvedValue(undefined),
+    writeDataToFile: vi.fn().mockResolvedValue(undefined),
+  }
+})
+
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
-import { startServer } from './main.js'
+import { startServer } from '../src/mcp.js'
 
 function waitForNeedAuth(client: Client, timeoutMs = 15000): Promise<void> {
   return new Promise<void>((resolve, reject) => {
@@ -10,7 +17,7 @@ function waitForNeedAuth(client: Client, timeoutMs = 15000): Promise<void> {
       client.callTool({ name: 'get_status' })
         .then((result) => {
           const status = (result.content as { text: string }[])[0].text
-          if (status === 'needAuth') resolve()
+          if (status.includes('Authentication is required')) resolve()
           else if (Date.now() - start < timeoutMs) setTimeout(poll, 100)
           else reject(new Error(`Timed out waiting for needAuth, got ${status}`))
         }).catch(reject)
@@ -133,11 +140,9 @@ describe('MCP Server Integration', () => {
     it('returns QR code content', async () => {
       const result = await client.callTool({ name: 'get_auth_qr', arguments: {} })
       expect(result.isError).toBe(false)
-      expect(result.content).toBeDefined()
-      const content = result.content as { type: string, text?: string, data?: string, mimeType?: string }[]
-      const types = content.map(c => c.type)
-      expect(types).toContain('image')
-      expect(types).toContain('text')
+      expect(result.structuredContent).toBeDefined()
+      expect((result.structuredContent as { url: string }).url).toMatch(/^https?:\/\//)
+      expect((result.structuredContent as { code: string }).code).toBeTruthy()
     })
   })
 })
