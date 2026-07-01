@@ -1,6 +1,6 @@
 {
   "name": "@lizzythelizard/whatsapp-mcp",
-  "version": "0.8.0",
+  "version": "1.0.0",
   "description": "MCP server for WhatsApp integration",
   "author": {
     "name": "Matthias Graf"
