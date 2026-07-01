@@ -12,8 +12,8 @@ export const otherGroup = { id: 'c2@g.us', name: 'C2', messages: [{}], archived:
 export const initialMessage = createMessage('m1')
 
 export const initialDataStore: DataStore = {
-  chats: JSON.stringify({ 'c1@g.us': initialGroup }),
-  contacts: JSON.stringify({ 'c1@s.whatsapp.net': initialContact }),
-  messages: JSON.stringify({ m1: initialMessage }),
+  chats: { 'c1@g.us': JSON.stringify(initialGroup) },
+  contacts: { 'c1@s.whatsapp.net': JSON.stringify(initialContact) },
+  messages: { m1: JSON.stringify(initialMessage) },
   auth: '',
 }

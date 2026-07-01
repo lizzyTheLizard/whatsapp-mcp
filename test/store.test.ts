@@ -212,12 +212,12 @@ describe('save callback', () => {
     vi.advanceTimersByTime(1000)
     await vi.waitFor(() => { expect(saveCb).toHaveBeenCalledTimes(1) })
 
-    const arg = saveCb.mock.calls[0][0] as { chats: string, contacts: string, messages: string, auth: string }
+    const arg = saveCb.mock.calls[0][0] as { chats: Record<string, string>, contacts: Record<string, string>, messages: Record<string, string>, auth: string }
 
-    expect(typeof arg.chats).toBe('string')
-    expect(typeof arg.contacts).toBe('string')
-    expect(typeof arg.messages).toBe('string')
-    expect(typeof arg.auth).toBe('string')
+    expect(arg.chats).toEqual({ [initialGroup.id]: expect.any(String) as string })
+    expect(arg.contacts).toEqual({})
+    expect(arg.messages).toEqual({})
+    expect(typeof arg.auth).toEqual('string')
   })
 
   it('debounces multiple events into one save', async () => {

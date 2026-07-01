@@ -22,9 +22,9 @@ export interface WhatsAppStore {
 }
 
 export interface DataStore {
-  chats: string
-  contacts: string
-  messages: string
+  chats: Record<string, string>
+  contacts: Record<string, string>
+  messages: Record<string, string>
   auth: string
 }
 
@@ -34,9 +34,9 @@ export interface CreateStoreOptions {
 }
 
 export function createStore(initialData: DataStore | undefined, options?: CreateStoreOptions): WhatsAppStore {
-  const chats = fromString<WAChatWithId>(initialData?.chats)
-  const contacts = fromString<WAContactWithId>(initialData?.contacts)
-  const messages = fromString<WAMessageWithId>(initialData?.messages)
+  const chats = fromRecord<WAChatWithId>(initialData?.chats)
+  const contacts = fromRecord<WAContactWithId>(initialData?.contacts)
+  const messages = fromRecord<WAMessageWithId>(initialData?.messages)
   let auth = createExportableAuth(initialData?.auth)
   let saveTimeout: NodeJS.Timeout | undefined = undefined
   const logger = options?.logger ?? consoleLog
@@ -97,9 +97,9 @@ export function createStore(initialData: DataStore | undefined, options?: Create
     }
     logger.debug('Saving WhatsApp store data...')
     const data: DataStore = {
-      chats: toString(chats),
-      contacts: toString(contacts),
-      messages: toString(messages),
+      chats: toRecord(chats),
+      contacts: toRecord(contacts),
+      messages: toRecord(messages),
       auth: auth.toAuthState(),
     }
     void writeData(data).catch((error: unknown) => {
@@ -175,16 +175,15 @@ export function createStore(initialData: DataStore | undefined, options?: Create
   }
 }
 
-function fromString<T>(data: string | undefined): Map<string, T> {
+function fromRecord<T>(data: Record<string, string> | undefined): Map<string, T> {
   if (!data) return new Map<string, T>()
-  const parsed = JSON.parse(data) as Record<string, T>
-  return new Map<string, T>(Object.entries(parsed))
+  return new Map<string, T>(Object.entries(data).map(([key, value]) => [key, JSON.parse(value, BufferJSON.reviver) as T]))
 }
 
-function toString<T>(map: Map<string, T>): string {
-  const record: Record<string, T> = {}
+function toRecord<T>(map: Map<string, T>): Record<string, string> {
+  const record: Record<string, string> = {}
   for (const [key, value] of map) {
-    record[key] = value
+    record[key] = JSON.stringify(value, BufferJSON.replacer)
   }
-  return JSON.stringify(record, BufferJSON.replacer, 2)
+  return record
 }
