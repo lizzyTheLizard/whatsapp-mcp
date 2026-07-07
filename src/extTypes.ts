@@ -60,10 +60,11 @@ export function toChatExt(chat: WAChatWithId | undefined, contacts: Map<string, 
   // Chats without messages are not relevant
   if (!chat.messages) return undefined
   if (chat.messages.length === 0) return undefined
-  // Do not return those weirs contact, we do not want them
+  // Do not return those weird contact, we do not want them
   if (chat.id.endsWith('@bot')) return undefined
+  if (chat.id.endsWith('@broadcast')) return undefined
   if (chat.id == '0@s.whatsapp.net') return undefined
-  // WhatsApp AI
+  // WhatsApp AI, not sure if this jid is constant...
   if (chat.id === '13135550002@s.whatsapp.net') return undefined
   // Skip ones where archived is undefined. Not sure what those are, but they are not relevant
   if (chat.archived === undefined) return undefined
