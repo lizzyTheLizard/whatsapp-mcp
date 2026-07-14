@@ -43,10 +43,20 @@ export function createStore(initialData: DataStore | undefined, options?: Create
 
   function mergeChats(newChats: Partial<WAChat>[]) {
     for (const c of newChats) {
-      if (!c.id) continue
-      const existing = chats.get(c.id) ?? {}
-      const merged = { ...existing, ...c } as WAChatWithId
-      chats.set(c.id, merged)
+      if (c.accountLid) {
+        const existing = chats.get(c.accountLid) ?? chats.get(c.id ?? '') ?? {}
+        const merged = { ...existing, ...c } as WAChatWithId
+        chats.set(c.accountLid, merged)
+        if (c.id) chats.delete(c.id)
+      }
+      else if (c.id) {
+        const existing = chats.get(c.id) ?? {}
+        const merged = { ...existing, ...c } as WAChatWithId
+        chats.set(c.id, merged)
+      }
+      else {
+        logger.warn('Received chat with no id, ignoring:' + JSON.stringify(c))
+      }
     }
   }
 
@@ -58,10 +68,20 @@ export function createStore(initialData: DataStore | undefined, options?: Create
 
   function mergeContacts(newContacts: Partial<WAContact>[]) {
     for (const c of newContacts) {
-      if (!c.id) continue
-      const existing = contacts.get(c.id) ?? {}
-      const merged = { ...existing, ...c } as WAContactWithId
-      contacts.set(c.id, merged)
+      if (c.lid) {
+        const existing = contacts.get(c.lid) ?? contacts.get(c.id ?? '') ?? {}
+        const merged = { ...existing, ...c } as WAContactWithId
+        contacts.set(c.lid, merged)
+        if (c.id) contacts.delete(c.id)
+      }
+      else if (c.id) {
+        const existing = contacts.get(c.id) ?? {}
+        const merged = { ...existing, ...c } as WAContactWithId
+        contacts.set(c.id, merged)
+      }
+      else {
+        logger.warn('Received contact with no id, ignoring:' + JSON.stringify(c))
+      }
     }
   }
 
