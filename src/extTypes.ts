@@ -101,7 +101,7 @@ export function tsToNumber(ts: number | Long | null | undefined, logger: ILogger
     const cast = ts as { high: number, low: number }
     return cast.high * 0x100000000 + cast.low
   }
-  logger.warn(`Unknown timestamp format (${typeof ts}): ${ts}`)
+  logger.warn(`Unknown timestamp format (${typeof ts}): ${JSON.stringify(ts)}`)
   return undefined
 }
 
