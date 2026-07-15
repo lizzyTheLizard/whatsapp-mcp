@@ -1,5 +1,5 @@
-import makeWASocket, { WABrowserDescription, ConnectionState, proto } from '@whiskeysockets/baileys'
-import { WhatsAppStore } from './store.js'
+import makeWASocket, { WABrowserDescription, ConnectionState } from '@whiskeysockets/baileys'
+import { WhatsAppStore, WhatsAppStoreExtension } from './store.js'
 import { consoleLog, ILogger } from './logger.js'
 
 export type SyncStatus = { type: 'notstarted' } | { type: 'connecting' } | { type: 'needAuth', qr: string } | { type: 'ready' } | { type: 'closed', error?: Error }
@@ -18,7 +18,7 @@ export interface WhatsAppHandlerOptions {
   logger?: ILogger
 }
 
-export function createHandler(store: WhatsAppStore, options?: WhatsAppHandlerOptions): WhatsAppHandler {
+export function createHandler(store: WhatsAppStore & WhatsAppStoreExtension, options?: WhatsAppHandlerOptions): WhatsAppHandler {
   const name = options?.name ?? 'Whatsapp MCP'
   const logger = options?.logger ?? consoleLog
   let state: SyncStatus = { type: 'notstarted' }
@@ -109,10 +109,11 @@ export function createHandler(store: WhatsAppStore, options?: WhatsAppHandlerOpt
     if (state.type === 'closed') throw new Error('Connection closed, please restart server')
     if (state.type === 'needAuth') throw new Error('Authentication needed, please authenticate yourself first')
     if (sock === undefined) throw new Error(`No Socket defined but state is ${state.type}. This is invalid, please restart server`)
-    logger.debug(`Sending message to ${jid}: ${message}`)
-    const result = await sock.sendMessage(jid, { text: message })
-    if (!result) throw new Error(`Failed to send message to ${jid}`)
-    logger.info(`Sent message to ${jid}: ${message}`)
+    const id = getEditChatId(jid)
+    logger.debug(`Sending message to ${id}: ${message}`)
+    const result = await sock.sendMessage(id, { text: message })
+    if (!result) throw new Error(`Failed to send message to ${id}`)
+    logger.info(`Sent message to ${id}: ${message}`)
   }
 
   async function setArchived(jid: string, archived: boolean): Promise<void> {
@@ -120,19 +121,11 @@ export function createHandler(store: WhatsAppStore, options?: WhatsAppHandlerOpt
     if (state.type === 'closed') throw new Error('Connection closed, please restart server')
     if (state.type === 'needAuth') throw new Error('Authentication needed, please authenticate yourself first')
     if (sock === undefined) throw new Error(`No Socket defined but state is ${state.type}. This is invalid, please restart server`)
-    const chat = store.getRawChat(jid)
-    if (!chat) throw new Error(`No chat found for ${jid}`)
-    const lastMessage = chat.messages?.[0].message
-    if (!lastMessage) {
-      logger.debug(`Archiving chat ${jid} with no last message`)
-      await sock.chatModify({ archive: archived, lastMessages: [] }, jid)
-      logger.info(`Archived chat ${jid} with no last message`)
-      return
-    }
-    if (!lastMessage.key) throw new Error(`Last message for ${jid} has no key, cannot archive chat`)
-    logger.debug(`Archiving chat ${jid}}`)
-    await sock.chatModify({ archive: archived, lastMessages: [lastMessage as proto.IWebMessageInfo & { key: typeof lastMessage.key }] }, jid)
-    logger.info(`Archived chat ${jid}}`)
+    const id = getEditChatId(jid)
+    const lastMsgInChat = store.getLastMessageInChat(id)
+    logger.debug(`Setting archived for ${id} to ${archived.toString()}`)
+    await sock.chatModify({ archive: archived, lastMessages: lastMsgInChat }, id)
+    logger.info(`Set archived for ${id} to ${archived.toString()}`)
   }
 
   async function setRead(jid: string, read: boolean): Promise<void> {
@@ -140,19 +133,18 @@ export function createHandler(store: WhatsAppStore, options?: WhatsAppHandlerOpt
     if (state.type === 'closed') throw new Error('Connection closed, please restart server')
     if (state.type === 'needAuth') throw new Error('Authentication needed, please authenticate yourself first')
     if (sock === undefined) throw new Error(`No Socket defined but state is ${state.type}. This is invalid, please restart server`)
-    const chat = store.getRawChat(jid)
-    if (!chat) throw new Error(`No chat found for ${jid}`)
-    const lastMessage = chat.messages?.[0].message
-    if (!lastMessage) {
-      logger.debug(`Marking chat ${jid} as ${read ? 'read' : 'unread'} with no last message`)
-      await sock.chatModify({ markRead: read, lastMessages: [] }, jid)
-      logger.info(`Marked chat ${jid} as ${read ? 'read' : 'unread'} with no last message`)
-      return
-    }
-    if (!lastMessage.key) throw new Error(`Last message for ${jid} has no key, cannot mark chat as unread`)
-    logger.debug(`Marking chat ${jid} as ${read ? 'read' : 'unread'}`)
-    await sock.chatModify({ markRead: read, lastMessages: [lastMessage as proto.IWebMessageInfo & { key: typeof lastMessage.key }] }, jid)
-    logger.info(`Marked chat ${jid} as ${read ? 'read' : 'unread'}`)
+    const id = getEditChatId(jid)
+    const lastMsgInChat = store.getLastMessageInChat(id)
+    logger.debug(`Setting read for ${id} to ${read.toString()}`)
+    await sock.chatModify({ markRead: read, lastMessages: lastMsgInChat }, id)
+    logger.info(`Set read for ${id} to ${read.toString()}`)
+  }
+
+  function getEditChatId(jid: string): string {
+    if (jid.endsWith('@lid')) return jid
+    const chat = store.getChat(jid)
+    if (!chat || chat.jid === jid) return jid
+    return chat.jid
   }
 
   return {
