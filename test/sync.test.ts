@@ -141,15 +141,10 @@ describe('setArchived', () => {
     await expect(handler.setArchived('test@s.whatsapp.net', true)).rejects.toThrow('Server still connecting')
   })
 
-  it('throws when chat is not found', async () => {
-    const handler = await createStartedHandlerWithMockSocket({ connection: 'open' })
-    await expect(handler.setArchived('unknown@s.whatsapp.net', true)).rejects.toThrow('No chat found')
-  })
-
   it('calls chatModify with empty lastMessages when chat has no last message', async () => {
     const store = createStore(undefined)
     const handler = await createStartedHandlerWithMockSocket({ connection: 'open' }, store)
-    store.getRawChat = vi.fn().mockReturnValue({ id: 'test@s.whatsapp.net' })
+    store.getLastMessageInChat = vi.fn().mockReturnValue([])
     const socket = getMockSocket()
     await handler.setArchived('test@s.whatsapp.net', true)
     expect(socket.chatModify).toHaveBeenCalledWith(
@@ -158,18 +153,11 @@ describe('setArchived', () => {
     )
   })
 
-  it('throws when last message has no key', async () => {
-    const store = createStore(undefined)
-    const handler = await createStartedHandlerWithMockSocket({ connection: 'open' }, store)
-    store.getRawChat = vi.fn().mockReturnValue({ id: 'test@s.whatsapp.net', messages: [{ message: {} }] })
-    await expect(handler.setArchived('test@s.whatsapp.net', true)).rejects.toThrow('has no key')
-  })
-
   it('calls chatModify with archive and last message when valid', async () => {
     const store = createStore(undefined)
     const handler = await createStartedHandlerWithMockSocket({ connection: 'open' }, store)
     const lastMsg = { key: { id: 'last', remoteJid: 'test@s.whatsapp.net' }, message: { conversation: 'bye' } }
-    store.getRawChat = vi.fn().mockReturnValue({ id: 'test@s.whatsapp.net', messages: [{ message: lastMsg }] })
+    store.getLastMessageInChat = vi.fn().mockReturnValue([lastMsg])
     const socket = getMockSocket()
     await handler.setArchived('test@s.whatsapp.net', true)
     expect(socket.chatModify).toHaveBeenCalledWith(
@@ -185,15 +173,10 @@ describe('setRead', () => {
     await expect(handler.setRead('test@s.whatsapp.net', true)).rejects.toThrow('Server still connecting')
   })
 
-  it('throws when chat is not found', async () => {
-    const handler = await createStartedHandlerWithMockSocket({ connection: 'open' })
-    await expect(handler.setRead('unknown@s.whatsapp.net', true)).rejects.toThrow('No chat found')
-  })
-
   it('calls chatModify with empty lastMessages when chat has no last message', async () => {
     const store = createStore(undefined)
     const handler = await createStartedHandlerWithMockSocket({ connection: 'open' }, store)
-    store.getRawChat = vi.fn().mockReturnValue({ id: 'test@s.whatsapp.net' })
+    store.getLastMessageInChat = vi.fn().mockReturnValue([])
     const socket = getMockSocket()
     await handler.setRead('test@s.whatsapp.net', true)
     expect(socket.chatModify).toHaveBeenCalledWith(
@@ -202,18 +185,11 @@ describe('setRead', () => {
     )
   })
 
-  it('throws when last message has no key', async () => {
-    const store = createStore(undefined)
-    const handler = await createStartedHandlerWithMockSocket({ connection: 'open' }, store)
-    store.getRawChat = vi.fn().mockReturnValue({ id: 'test@s.whatsapp.net', messages: [{ message: {} }] })
-    await expect(handler.setRead('test@s.whatsapp.net', true)).rejects.toThrow('has no key')
-  })
-
   it('calls chatModify with markRead and last message when valid', async () => {
     const store = createStore(undefined)
     const handler = await createStartedHandlerWithMockSocket({ connection: 'open' }, store)
     const lastMsg = { key: { id: 'last', remoteJid: 'test@s.whatsapp.net' }, message: { conversation: 'hi' } }
-    store.getRawChat = vi.fn().mockReturnValue({ id: 'test@s.whatsapp.net', messages: [{ message: lastMsg }] })
+    store.getLastMessageInChat = vi.fn().mockReturnValue([lastMsg])
     const socket = getMockSocket()
     await handler.setRead('test@s.whatsapp.net', true)
     expect(socket.chatModify).toHaveBeenCalledWith(

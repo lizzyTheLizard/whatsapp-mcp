@@ -57,9 +57,6 @@ export interface Chat {
 
 export function toChatExt(chat: WAChatWithId | undefined, contacts: Map<string, WAContactWithId>, logger: ILogger): Chat | undefined {
   if (!chat) return undefined
-  // Chats without messages are not relevant
-  if (!chat.messages) return undefined
-  if (chat.messages.length === 0) return undefined
   // Do not return those weird contact, we do not want them
   if (chat.id.endsWith('@bot')) return undefined
   if (chat.id.endsWith('@broadcast')) return undefined
@@ -70,7 +67,7 @@ export function toChatExt(chat: WAChatWithId | undefined, contacts: Map<string, 
   if (chat.archived === undefined) return undefined
   const isGroup = chat.id.endsWith('@g.us')
   const name = isGroup ? chat.name : getChatName(chat, contacts, logger)
-  const lastMessageTimestamp = getLastMessageTimestamp(chat, chat.messages[0], logger)
+  const lastMessageTimestamp = getLastMessageTimestamp(chat, chat.messages?.[0], logger)
   // Now sure that those actually are, but thy are not relevant
   if (!name) return undefined
   if (!lastMessageTimestamp) return undefined
@@ -85,20 +82,27 @@ export function toChatExt(chat: WAChatWithId | undefined, contacts: Map<string, 
   }
 }
 
-function getLastMessageTimestamp(chat: WAChatWithId, message: proto.IHistorySyncMsg, logger: ILogger): number | undefined {
+function getLastMessageTimestamp(chat: WAChatWithId, message: proto.IHistorySyncMsg | undefined, logger: ILogger): number | undefined {
   // There are different ways to get the last message timestamp...
-  let lastMessageTimestamp = chat.lastMessageRecvTimestamp
-    ?? chat.lastMsgTimestamp
-    ?? message.message?.messageTimestamp
-  // This should not happen, but if it does, we want to know about it
-  if (lastMessageTimestamp === undefined || lastMessageTimestamp === null) {
-    logger.warn(`chat ${chat.id}) has no last message timestamp`)
-    return undefined
+  return Math.max(
+    tsToNumber(message?.message?.messageTimestamp, logger) ?? 0,
+    tsToNumber(chat.lastMsgTimestamp, logger) ?? 0,
+    tsToNumber(chat.lastMessageRecvTimestamp, logger) ?? 0,
+  )
+}
+
+export function tsToNumber(ts: number | Long | null | undefined, logger: ILogger): number | undefined {
+  if (ts === undefined || ts === null) return undefined
+  if (typeof ts === 'number') return ts
+  if (typeof ts === 'object' && 'toNumber' in ts) return ts.toNumber()
+  // In theory, this should not happen, but apparently it does
+  if (typeof ts === 'string') return parseInt(ts)
+  if (typeof ts === 'object' && 'high' in ts && 'low' in ts) {
+    const cast = ts as { high: number, low: number }
+    return cast.high * 0x100000000 + cast.low
   }
-  // This is not in the data model but apparently happes...
-  if (typeof lastMessageTimestamp === 'string') lastMessageTimestamp = parseInt(lastMessageTimestamp)
-  if (typeof lastMessageTimestamp !== 'number') lastMessageTimestamp = lastMessageTimestamp.toNumber()
-  return lastMessageTimestamp
+  logger.warn(`Unknown timestamp format (${typeof ts}): ${JSON.stringify(ts)}`)
+  return undefined
 }
 
 function getChatName(chat: WAChatWithId, contacts: Map<string, WAContactWithId>, logger: ILogger): string {
@@ -130,7 +134,7 @@ export function toMessageExt(message: WAMessageWithId | undefined, contacts: Map
   // Status updates are not relevant
   if (message.key.remoteJid === 'status@broadcast') { return undefined }
   // This should not happen, but if it does, we want to know about it
-  const messageTimestamp = getMessageTimestamp(message)
+  const messageTimestamp = tsToNumber(message.messageTimestamp, logger)
   if (!messageTimestamp) {
     logger.warn(`Message ${message.key.id} has no message timestamp`)
     return undefined
@@ -146,25 +150,10 @@ export function toMessageExt(message: WAMessageWithId | undefined, contacts: Map
   }
 }
 
-function getMessageTimestamp(message: WAMessageWithId): number | undefined {
-  if (!message.messageTimestamp) return undefined
-  let messageTimestamp = message.messageTimestamp
-  // This should not happen, but apparently it does
-  if (typeof messageTimestamp === 'string') messageTimestamp = parseInt(messageTimestamp)
-  // This should not happen, but apparently it does
-  if (typeof messageTimestamp === 'object') {
-    if ('high' in (messageTimestamp as object) && 'low' in (messageTimestamp as object)) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/restrict-plus-operands
-      messageTimestamp = (messageTimestamp as any).high * 0x100000000 + (messageTimestamp as any).low
-    }
-  }
-  if (typeof messageTimestamp !== 'number') messageTimestamp = messageTimestamp.toNumber()
-  return messageTimestamp
-}
-
 function getFrom(message: WAMessageWithId, contacts: Map<string, WAContactWithId>, logger: ILogger): { jid: string, name: string, phone?: string } | undefined {
   if (message.key.fromMe) return undefined
-  const from = message.participant ?? message.key.participant ?? message.key.remoteJid
+  // Different types of participants info is used... And it can even be an empty string if not filled!
+  const from = notEmpty(message.participant) ?? notEmpty(message.key.participant) ?? notEmpty(message.key.remoteJid)
   if (!from) {
     logger.warn(`Message ${message.key.id} has no from or participant`)
     return undefined
@@ -201,6 +190,12 @@ function getFrom(message: WAMessageWithId, contacts: Map<string, WAContactWithId
   return { jid: from, name, phone: phone }
 }
 
+function notEmpty(s: string | null | undefined): string | undefined {
+  if (s === undefined || s === null) return undefined
+  if (s.trim().length === 0) return undefined
+  return s
+}
+
 function getMessageContent(message: proto.IMessage, logger: ILogger): string | undefined {
   if (message.protocolMessage) return undefined
   if (message.conversation) return message.conversation
@@ -217,6 +212,7 @@ function getMessageContent(message: proto.IMessage, logger: ILogger): string | u
   if (message.audioMessage) return '[Audio]'
   if (message.pollCreationMessageV3) return '[Poll: ' + (message.pollCreationMessageV3.name ?? 'no text') + ']'
   if (message.templateMessage) return '[Template]'
+  if (message.interactiveMessage) return '[Interactive]'
   logger.warn(`Unknown message type: ${Object.keys(message).join(', ')}`)
   return '[Unknown message type]'
 }
