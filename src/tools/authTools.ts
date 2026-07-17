@@ -1,16 +1,13 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { toCallError } from './common.js'
-import { WhatsAppStore } from '../store.js'
-import { WhatsAppHandler } from '../sync.js'
+import { WhatsAppHandler } from '../core/handler.js'
 import z from 'zod'
 
-export function registerAuthTools(server: McpServer, store: WhatsAppStore, sync: WhatsAppHandler) {
+export function registerAuthTools(server: McpServer, sync: WhatsAppHandler) {
   server.registerTool('get_auth_qr', { description: 'Get a QR code to authenticate with WhatsApp. Call this tool when authentication is required.', outputSchema: QrCodeResultSchema },
-    async () => {
+    () => {
       try {
-        let status = sync.getStatus()
-        if (status.type === 'closed') await sync.start()
-        status = sync.getStatus()
+        const status = sync.getStatus()
         if (status.type === 'closed') throw new Error('WhatsApp sync is closed. Please restart the server.')
         if (status.type !== 'needAuth') throw new Error('Authentication is not required at this time.')
         return {

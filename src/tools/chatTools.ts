@@ -1,12 +1,11 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { type WhatsAppStore } from '../store.js'
-import { WhatsAppHandler } from '../sync.js'
+import { WhatsAppHandler } from '../core/handler.js'
 import z from 'zod'
 import { JidSchema, withErrorHandling } from './common.js'
 
-export function registerChatTools(server: McpServer, store: WhatsAppStore, sync: WhatsAppHandler) {
+export function registerChatTools(server: McpServer, sync: WhatsAppHandler) {
   server.registerTool('get_all_chats', { description: 'Retrieve all WhatsApp chats with their metadata', outputSchema: AllChatsSchema },
-    () => withErrorHandling(sync, () => ({ chats: store.getChats() })),
+    () => withErrorHandling(sync, () => ({ chats: sync.getChats() })),
   )
 
   server.registerTool('set_chat_archived', { description: 'Set a WhatsApp chat as archived or unarchived', inputSchema: ArchiveChatSchema },

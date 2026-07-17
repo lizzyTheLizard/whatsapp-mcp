@@ -1,12 +1,11 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { type WhatsAppStore } from '../store.js'
-import { type WhatsAppHandler } from '../sync.js'
+import { type WhatsAppHandler } from '../core/handler.js'
 import z from 'zod'
 import { JidSchema, withErrorHandling } from './common.js'
 
-export function registerContactResources(server: McpServer, store: WhatsAppStore, sync: WhatsAppHandler) {
+export function registerContactResources(server: McpServer, sync: WhatsAppHandler) {
   server.registerTool('get_all_contacts', { description: 'Retrieve all WhatsApp contacts', outputSchema: AllContactsSchema },
-    async () => withErrorHandling(sync, () => ({ contacts: store.getContacts() })),
+    async () => withErrorHandling(sync, () => ({ contacts: sync.getContacts() })),
   )
 }
 

@@ -1,20 +1,15 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { WhatsAppStore } from '../store.js'
-import { WhatsAppHandler } from '../sync.js'
+import { WhatsAppHandler } from '../core/handler.js'
 import z from 'zod'
 import { JidSchema, withErrorHandling } from './common.js'
 
-export function registerMessageTools(server: McpServer, store: WhatsAppStore, sync: WhatsAppHandler) {
+export function registerMessageTools(server: McpServer, sync: WhatsAppHandler) {
   server.registerTool('send_message', { description: 'Send a WhatsApp-Message to a given JID', inputSchema: SendMessageSchema },
     async args => withErrorHandling(sync, () => sync.sendMessage(args.jid, args.message).then(() => `Message sent to ${args.jid}: "${args.message}"`)),
   )
 
-  server.registerTool('get_all_messages', { description: 'Retrieve all WhatsApp messages across all chats. This can return a large amount of data.', outputSchema: AllMessagesSchema },
-    async () => withErrorHandling(sync, () => ({ messages: store.getMessages() })),
-  )
-
   server.registerTool('get_all_messages_for_chat', { description: 'Retrieve all WhatsApp messages for a specific chat.', inputSchema: GetChatMessagesSchema, outputSchema: AllMessagesSchema },
-    async args => withErrorHandling(sync, () => ({ messages: store.getMessagesForChat(args.jid) })),
+    async args => withErrorHandling(sync, () => ({ messages: sync.fetchMessages(args.jid) })),
   )
 }
 

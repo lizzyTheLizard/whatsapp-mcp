@@ -1,22 +1,44 @@
-import { promises as fsp } from 'fs'
-import { DataStore } from './index.js'
+import * as fs from 'fs'
+import { DataObject } from './core/handler.js'
+import { join } from 'path'
 
 const dataDir = process.env.DATA_DIR ?? './data'
 
-export async function readDataFromFile(): Promise<DataStore | undefined> {
-  const canAccess = await fsp.access(dataDir).then(() => true).catch(() => false)
+export async function readDataFromFile(): Promise<DataObject[] | undefined> {
+  const canAccess = await fs.promises.access(dataDir).then(() => true).catch(() => false)
   if (!canAccess) return undefined
-  const chats = JSON.parse(await fsp.readFile(`${dataDir}/chats.json`, 'utf-8')) as Record<string, string>
-  const messages = JSON.parse(await fsp.readFile(`${dataDir}/messages.json`, 'utf-8')) as Record<string, string>
-  const contacts = JSON.parse(await fsp.readFile(`${dataDir}/contacts.json`, 'utf-8')) as Record<string, string>
-  const auth = await fsp.readFile(`${dataDir}/auth.json`, 'utf-8')
-  return { chats, messages, contacts, auth }
+  const result: DataObject[] = []
+
+  const chatFiles = await fs.promises.readdir(join(dataDir, 'chat')).catch(() => [])
+  for (const file of chatFiles) {
+    if (!file.endsWith('.json')) continue
+    const filePath = join(dataDir, 'chat', file)
+    const data = await fs.promises.readFile(filePath, 'utf-8')
+    result.push({ id: file.replace('.json', ''), type: 'chat', data })
+  }
+
+  const contactFiles = await fs.promises.readdir(join(dataDir, 'contact')).catch(() => [])
+  for (const file of contactFiles) {
+    if (!file.endsWith('.json')) continue
+    const filePath = join(dataDir, 'contact', file)
+    const data = await fs.promises.readFile(filePath, 'utf-8')
+    result.push({ id: file.replace('.json', ''), type: 'contact', data })
+  }
+
+  const authFiles = await fs.promises.readdir(join(dataDir, 'auth')).catch(() => [])
+  for (const file of authFiles) {
+    if (!file.endsWith('.json')) continue
+    const filePath = join(dataDir, 'auth', file)
+    const data = await fs.promises.readFile(filePath, 'utf-8')
+    result.push({ id: file.replace('.json', ''), type: 'auth', data })
+  }
+  return result
 }
 
-export async function writeDataToFile(data: DataStore): Promise<void> {
-  await fsp.mkdir(dataDir, { recursive: true })
-  await fsp.writeFile(`${dataDir}/chats.json`, JSON.stringify(data.chats, null, 2), 'utf-8')
-  await fsp.writeFile(`${dataDir}/messages.json`, JSON.stringify(data.messages, null, 2), 'utf-8')
-  await fsp.writeFile(`${dataDir}/contacts.json`, JSON.stringify(data.contacts, null, 2), 'utf-8')
-  await fsp.writeFile(`${dataDir}/auth.json`, data.auth, 'utf-8')
+export function writeDataToFile(data: DataObject): void {
+  const folder = join(dataDir, data.type)
+  fs.mkdirSync(folder, { recursive: true })
+  const file = join(folder, `${data.id}.json`)
+  fs.rmSync(file, { force: true })
+  fs.writeFileSync(file, data.data, 'utf-8')
 }

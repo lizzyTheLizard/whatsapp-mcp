@@ -1,3 +1,2 @@
-export { createStore, DataStore, WhatsAppStore, Emitter } from './store.js'
-export { createHandler, WhatsAppHandler, SyncStatus } from './sync.js'
-export { Chat, Contact, Message } from './extTypes.js'
+export { createHandler, WhatsAppHandler, HandlerStatus, DataObject, WhatsAppHandlerOptions } from './core/handler.js'
+export { Chat, Contact, Message } from './core/extTypes.js'

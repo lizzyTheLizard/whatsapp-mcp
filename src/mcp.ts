@@ -2,10 +2,10 @@
 
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
+import type { HandlerStatus } from './core/handler.js'
 import pkg from '../package.json' with { type: 'json' }
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { createStore } from './store.js'
-import { createHandler } from './sync.js'
+import { createHandler, WhatsAppHandler } from './core/handler.js'
 import { createServer } from 'node:http'
 import { randomUUID } from 'node:crypto'
 import { parseArgs, ParseArgsOptionsConfig } from 'node:util'
@@ -17,25 +17,35 @@ import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
 import { readDataFromFile, writeDataToFile } from './dataDir.js'
-import { noLog } from './logger.js'
+import { noLog } from './core/logger.js'
 const cliOptions: ParseArgsOptionsConfig = {
   host: { type: 'string', short: 'h', multiple: false },
   port: { type: 'string', short: 'p', multiple: false },
 }
 
-export async function startServer(transport: Transport): Promise<() => Promise<void>> {
+async function waitToBeStarted(): Promise<WhatsAppHandler> {
   const inputData = await readDataFromFile()
-  const store = createStore(inputData, { writeData: async (data) => { await writeDataToFile(data) }, logger: noLog })
-  const sync = createHandler(store, { logger: noLog })
-  await sync.start()
+  return new Promise((resolve, reject) => {
+    function onStatusChanged(status: HandlerStatus) {
+      if (status.type === 'ready') resolve(sync)
+      else if (status.type === 'needAuth') resolve(sync)
+      else if (status.type === 'closed') reject(new Error('WhatsApp sync closed'))
+    }
+    const sync = createHandler(inputData, { logger: noLog, update: writeDataToFile, onStatusChanged })
+    sync.start()
+  })
+}
+
+export async function startServer(transport: Transport): Promise<() => Promise<void>> {
+  const sync = await waitToBeStarted()
   const server = new McpServer({ name: pkg.name, version: pkg.version })
-  registerContactResources(server, store, sync)
-  registerChatTools(server, store, sync)
-  registerMessageTools(server, store, sync)
-  registerAuthTools(server, store, sync)
+  registerContactResources(server, sync)
+  registerChatTools(server, sync)
+  registerMessageTools(server, sync)
+  registerAuthTools(server, sync)
   await server.connect(transport)
   return async () => {
-    sync.close()
+    sync.stop()
     await server.close()
   }
 }
